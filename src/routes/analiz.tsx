@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { fetchSingleStock, fetchStockHistory, fetchBistData, fetchSingleAiAnalysis } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown, Star, RefreshCw, BarChart3, Activity, Clock, Target, Zap, Search, Brain, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Area, AreaChart, ComposedChart } from "recharts";
 import { useWatchlist } from "@/lib/storage";
 import { z } from "zod";
 import { useMemo, useState } from "react";
@@ -343,7 +344,7 @@ function AnalizPage() {
                 {/* Tahminler */}
                 <div>
                   <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Fiyat Beklentileri (Ensemble Model)</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                     {aiData.analysis.predictions.map((p: any) => (
                       <div key={p.horizonDays} className="p-4 rounded-lg border border-border bg-card">
                         <div className="text-xs text-muted-foreground font-medium mb-2">{p.horizonDays} Günlük Beklenti</div>
@@ -357,6 +358,45 @@ function AnalizPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  {/* AI Grafik */}
+                  <div className="h-[300px] w-full mt-4 p-4 border border-border rounded-xl bg-secondary/10">
+                    <h4 className="text-xs font-bold text-muted-foreground mb-4 text-center">Yapay Zeka Modelleri Gelecek Projeksiyonu</h4>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={[
+                        { name: "Şu An", Ensemble: aiData.analysis.currentPrice, AltBant: aiData.analysis.currentPrice, ÜstBant: aiData.analysis.currentPrice, LinearRegression: aiData.analysis.currentPrice, MomentumExtrapolation: aiData.analysis.currentPrice, MeanReversion: aiData.analysis.currentPrice, EMA_Projection: aiData.analysis.currentPrice },
+                        ...aiData.analysis.predictions.map((p: any) => {
+                          const obj: any = {
+                            name: `${p.horizonDays}G`,
+                            Ensemble: p.expectedPrice,
+                            AltBant: p.lowerBand,
+                            ÜstBant: p.upperBand,
+                          };
+                          p.models.forEach((m: any) => { obj[m.model] = m.prediction; });
+                          return obj;
+                        })
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} vertical={false} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "currentColor", opacity: 0.5 }} />
+                        <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "currentColor", opacity: 0.5 }} width={40} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                          itemStyle={{ fontSize: '12px', padding: '2px 0' }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
+                        
+                        <Area type="monotone" dataKey="ÜstBant" fill="currentColor" fillOpacity={0.02} stroke="none" />
+                        <Area type="monotone" dataKey="AltBant" fill="var(--background)" fillOpacity={1} stroke="none" />
+                        
+                        <Line type="monotone" dataKey="LinearRegression" stroke="oklch(0.6 0.15 200)" strokeWidth={1} strokeDasharray="4 4" dot={false} name="Lineer Reg." />
+                        <Line type="monotone" dataKey="MomentumExtrapolation" stroke="oklch(0.6 0.15 40)" strokeWidth={1} strokeDasharray="4 4" dot={false} name="Momentum" />
+                        <Line type="monotone" dataKey="MeanReversion" stroke="oklch(0.6 0.15 300)" strokeWidth={1} strokeDasharray="4 4" dot={false} name="Mean Reversion" />
+                        <Line type="monotone" dataKey="EMA_Projection" stroke="oklch(0.6 0.15 100)" strokeWidth={1} strokeDasharray="4 4" dot={false} name="EMA Projeksiyonu" />
+                        
+                        <Line type="monotone" dataKey="Ensemble" stroke="var(--primary)" strokeWidth={3} dot={{ r: 4, fill: "var(--primary)" }} activeDot={{ r: 6 }} name="Nihai Beklenti (Ensemble)" />
+                      </ComposedChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
 

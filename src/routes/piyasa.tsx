@@ -74,6 +74,7 @@ function PiyasaPage() {
     // Tab filtresi
     if (tab === "gainers") arr = arr.filter((s) => s.changePercent > 0);
     if (tab === "losers") arr = arr.filter((s) => s.changePercent < 0);
+    if (tab === "volume") arr = [...arr].sort((a, b) => b.volume - a.volume);
 
     // Sıralama
     if (sortKey) {

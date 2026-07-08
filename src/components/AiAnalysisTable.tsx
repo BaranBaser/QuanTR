@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchTopAiAnalysis } from "@/lib/ai.functions";
-import { RefreshCw, Activity, Brain, Target, Info } from "lucide-react";
+import { RefreshCw, Activity, Brain, Target, Info, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { useState, useMemo } from "react";
 
 export function AiAnalysisTable() {
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -16,6 +17,59 @@ export function AiAnalysisTable() {
     staleTime: 5 * 60 * 1000,
     throwOnError: false,
   });
+
+  type SortKey = "symbol" | "decision" | "confidence" | "trend" | "prediction";
+  const [sortKey, setSortKey] = useState<SortKey | null>("confidence");
+  const [sortAsc, setSortAsc] = useState(false);
+
+  const sortedData = useMemo(() => {
+    if (!data) return [];
+    let arr = [...data];
+    if (sortKey) {
+      arr.sort((a, b) => {
+        let av: any, bv: any;
+        switch (sortKey) {
+          case "symbol": av = a.symbol; bv = b.symbol; break;
+          case "decision": 
+            const dmap = { "AL": 3, "BEKLE": 2, "SAT": 1 };
+            av = dmap[a.analysis.decision as keyof typeof dmap] || 0; 
+            bv = dmap[b.analysis.decision as keyof typeof dmap] || 0; 
+            break;
+          case "confidence": av = a.analysis.confidenceScore; bv = b.analysis.confidenceScore; break;
+          case "trend": 
+            const tmap = { "YÜKSELEN": 3, "YATAY": 2, "DÜŞEN": 1 };
+            av = tmap[a.analysis.trend as keyof typeof tmap] || 0; 
+            bv = tmap[b.analysis.trend as keyof typeof tmap] || 0; 
+            break;
+          case "prediction": 
+            av = a.analysis.predictions.find((p: any) => p.horizonDays === 20)?.expectedReturnPercent || 0;
+            bv = b.analysis.predictions.find((p: any) => p.horizonDays === 20)?.expectedReturnPercent || 0;
+            break;
+          default: return 0;
+        }
+        if (typeof av === "string" && typeof bv === "string") {
+          return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+        }
+        return sortAsc ? av - bv : bv - av;
+      });
+    }
+    return arr;
+  }, [data, sortKey, sortAsc]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      if (sortAsc) setSortAsc(false);
+      else setSortKey(null);
+    } else {
+      setSortKey(key);
+      setSortAsc(true);
+    }
+  };
+
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return <ArrowUpDown className="w-3 h-3 opacity-30" />;
+    return sortAsc ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />;
+  };
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">
@@ -48,16 +102,26 @@ export function AiAnalysisTable() {
           <table className="w-full text-sm">
             <thead className="text-xs text-muted-foreground border-b border-border">
               <tr>
-                <th className="text-left font-medium pb-2">Hisse</th>
-                <th className="text-center font-medium pb-2">Karar</th>
-                <th className="text-center font-medium pb-2">Güven Skoru</th>
-                <th className="text-right font-medium pb-2">Trend</th>
-                <th className="text-right font-medium pb-2">20G Beklenti</th>
+                <th className="text-left font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("symbol")}>
+                  <span className="inline-flex items-center gap-1">Hisse <SortIcon k="symbol" /></span>
+                </th>
+                <th className="text-center font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("decision")}>
+                  <span className="inline-flex items-center justify-center gap-1">Karar <SortIcon k="decision" /></span>
+                </th>
+                <th className="text-center font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("confidence")}>
+                  <span className="inline-flex items-center justify-center gap-1">Güven Skoru <SortIcon k="confidence" /></span>
+                </th>
+                <th className="text-right font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("trend")}>
+                  <span className="inline-flex items-center justify-end gap-1">Trend <SortIcon k="trend" /></span>
+                </th>
+                <th className="text-right font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("prediction")}>
+                  <span className="inline-flex items-center justify-end gap-1">20G Beklenti <SortIcon k="prediction" /></span>
+                </th>
               </tr>
             </thead>
             <tbody>
-              {data && data.length > 0 ? (
-                data.map((row) => (
+              {sortedData && sortedData.length > 0 ? (
+                sortedData.map((row) => (
                   <tr key={row.symbol} className="border-b border-border/50 hover:bg-secondary/20">
                     <td className="py-3">
                       <Link to="/analiz" search={{ symbol: row.symbol }} className="font-bold hover:text-primary transition-colors">
