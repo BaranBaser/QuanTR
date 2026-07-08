@@ -95,24 +95,22 @@ export const fetchIndexes = createServerFn({ method: "GET" })
       .filter(Boolean) as IndexData[];
   });
 
-// ─── BIST Stocks (Genişletilmiş) ───────────────────────────────────────────
-
-export type StockData = {
-  symbol: string;
-  name: string;
-  price: number;
-  change: number;
-  changePercent: number;
-  volume: number;
-  high: number;
-  low: number;
-  high52: number;
-  low52: number;
-  sector: string;
-};
-
 // BIST Tüm Hisseleri (613 Hisse)
 const BIST_SYMBOLS = ["A1CAP","A1YEN","AAGYO","ACSEL","ADEL","ADESE","ADGYO","AEFES","AFYON","AGESA","AGHOL","AGROT","AGYO","AHGAZ","AHSGY","AKBNK","AKCNS","AKENR","AKFGY","AKFIS","AKFYE","AKGRT","AKHAN","AKMGY","AKSA","AKSEN","AKSGY","AKSUE","AKYHO","ALARK","ALBRK","ALCAR","ALCTL","ALFAS","ALGYO","ALKA","ALKIM","ALKLC","ALTNY","ALVES","ANELE","ANGEN","ANHYT","ANSGR","ARASE","ARCLK","ARDYZ","ARENA","ARFYE","ARMGD","ARSAN","ARTMS","ARZUM","ASELS","ASGYO","ASTOR","ASUZU","ATAGY","ATAKP","ATATP","ATATR","ATEKS","ATLAS","ATSYH","AVGYO","AVHOL","AVOD","AVPGY","AVTUR","AYCES","AYDEM","AYEN","AYES","AYGAZ","AZTEK","BAGFS","BAHKM","BAKAB","BALAT","BALSU","BANVT","BARMA","BASCM","BASGZ","BAYRK","BEGYO","BERA","BESLR","BESTE","BEYAZ","BFREN","BIENY","BIGCH","BIGEN","BIGTK","BIMAS","BINBN","BINHO","BIOEN","BIZIM","BJKAS","BLCYT","BLUME","BMSCH","BMSTL","BNTAS","BOBET","BORLS","BORSK","BOSSA","BRISA","BRKO","BRKSN","BRKVY","BRLSM","BRMEN","BRSAN","BRYAT","BSOKE","BTCIM","BUCIM","BULGS","BURCE","BURVA","BVSAN","BYDNR","CANTE","CASA","CATES","CCOLA","CELHA","CEMAS","CEMTS","CEMZY","CEOEM","CGCAM","CIMSA","CLEBI","CMBTN","CMENT","CONSE","COSMO","CRDFA","CRFSA","CUSAN","CVKMD","CWENE","DAGI","DAPGM","DARDL","DCTTR","DENGE","DERHL","DERIM","DESA","DESPC","DEVA","DGATE","DGGYO","DGNMO","DIRIT","DITAS","DMRGD","DMSAS","DNISI","DOAS","DOCO","DOFER","DOFRB","DOGUB","DOHOL","DOKTA","DSTKF","DUNYH","DURDO","DURKN","DYOBY","DZGYO","EBEBK","ECILC","ECOGR","ECZYT","EDATA","EDIP","EFOR","EGEEN","EGEGY","EGEPO","EGGUB","EGPRO","EGSER","EKDMR","EKGYO","EKIZ","EKOS","EKSUN","ELITE","EMKEL","EMNIS","EMPAE","ENDAE","ENERY","ENJSA","ENKAI","ENPRA","ENSRI","ENTRA","EPLAS","ERBOS","ERCB","EREGL","ERSU","ESCAR","ESCOM","ESEN","ETILR","ETYAT","EUHOL","EUKYO","EUPWR","EUREN","EUYO","EYGYO","FADE","FENER","FLAP","FMIZP","FONET","FORMT","FORTE","FRIGO","FRMPL","FROTO","FZLGY","GARAN","GARFA","GATEG","GEDIK","GEDZA","GENIL","GENKM","GENTS","GEREL","GESAN","GIPTA","GLBMD","GLCVY","GLRMK","GLRYH","GLYHO","GMTAS","GOKNR","GOLDA","GOLTS","GOODY","GOZDE","GRNYO","GRSEL","GRTHO","GSDDE","GSDHO","GSRAY","GUBRF","GUNDG","GWIND","GZNMI","HALKB","HATEK","HATSN","HDFGS","HEDEF","HEKTS","HKTM","HLGYO","HOROZ","HRKET","HTTBT","HUBVC","HUNER","HURGZ","ICBCT","ICUGS","IDGYO","IEYHO","IHAAS","IHEVA","IHGZT","IHLAS","IHLGM","IHYAY","IMASM","INDES","INFO","INGRM","INTEK","INTEM","INVEO","INVES","ISATR","ISBIR","ISBTR","ISCTR","ISDMR","ISFIN","ISGSY","ISGYO","ISKPL","ISKUR","ISMEN","ISSEN","ISYAT","IZENR","IZFAS","IZINV","IZMDC","JANTS","KAPLM","KAREL","KARSN","KARTN","KATMR","KAYSE","KBORU","KCAER","KCHOL","KENT","KERVN","KFEIN","KGYO","KIMMR","KLGYO","KLKIM","KLMSN","KLNMA","KLRHO","KLSER","KLSYN","KLYPV","KMPUR","KNFRT","KOCMT","KONKA","KONTR","KONYA","KOPOL","KORDS","KOTON","KRDMA","KRDMB","KRDMD","KRGYO","KRONT","KRPLS","KRSTL","KRTEK","KRVGD","KSTUR","KTLEV","KTSKR","KUTPO","KUVVA","KUYAS","KZBGY","KZGYO","LIDER","LIDFA","LILAK","LINK","LKMNH","LMKDC","LOGO","LRSHO","LUKSK","LXGYO","LYDHO","LYDYE","MAALT","MACKO","MAGEN","MAKIM","MAKTK","MANAS","MARBL","MARKA","MARMR","MARTI","MAVI","MCARD","MEDTR","MEGAP","MEGMT","MEKAG","MEPET","MERCN","MERIT","MERKO","METRO","MEYSU","MGROS","MHRGY","MIATK","MMCAS","MNDRS","MNDTR","MOBTL","MOGAN","MOPAS","MPARK","MRGYO","MRSHL","MSGYO","MTRKS","MTRYO","MZHLD","NATEN","NETAS","NETCD","NIBAS","NTGAZ","NTHOL","NUGYO","NUHCM","OBAMS","OBASE","ODAS","ODINE","OFSYM","ONCSM","ONRYT","ORCAY","ORGE","ORMA","ORZAX","OSMEN","OSTIM","OTKAR","OTTO","OYAKC","OYAYO","OYLUM","OYYAT","OZATD","OZGYO","OZKGY","OZRDN","OZSUB","OZYSR","PAGYO","PAHOL","PAMEL","PAPIL","PARSN","PASEU","PATEK","PCILT","PEKGY","PENGD","PENTA","PETKM","PETUN","PGSUS","PINSU","PKART","PKENT","PLTUR","PNLSN","PNSUT","POLHO","POLTK","PRDGS","PRKAB","PRKME","PRZMA","PSDTC","PSGYO","QNBFK","QNBTR","QUAGR","RALYH","RAYSG","REEDR","RGYAS","RNPOL","RODRG","RTALB","RUBNS","RUZYE","RYGYO","RYSAS","SAFKR","SAHOL","SAMAT","SANEL","SANFM","SANKO","SARKY","SASA","SAYAS","SDTTR","SEGMN","SEGYO","SEKFK","SEKUR","SELEC","SELVA","SERNT","SEYKM","SILVR","SISE","SKBNK","SKTAS","SKYLP","SKYMD","SMART","SMRTG","SMRVA","SNGYO","SNICA","SNPAM","SODSN","SOHOE","SOKE","SOKM","SONME","SRVGY","SUMAS","SUNTK","SURGY","SUWEN","SVGYO","TABGD","TARKM","TATEN","TATGD","TAVHL","TBORG","TCELL","TCKRC","TDGYO","TEHOL","TEKTU","TERA","TEZOL","TGSAS","THYAO","TKFEN","TKNSA","TLMAN","TMPOL","TMSN","TNZTP","TOASO","TRALT","TRCAS","TRENJ","TRGYO","TRHOL","TRILC","TRMET","TSGYO","TSKB","TSPOR","TTKOM","TTRAK","TUCLK","TUKAS","TUPRS","TUREX","TURGG","TURSG","UCAYM","UFUK","ULAS","ULKER","ULUFA","ULUSE","ULUUN","UNLU","USAK","VAKBN","VAKFA","VAKFN","VAKKO","VANGD","VBTYZ","VERTU","VERUS","VESBE","VESTL","VKFYO","VKGYO","VKING","VRGYO","VSNMD","YAPRK","YATAS","YAYLA","YBTAS","YEOTK","YESIL","YGGYO","YIGIT","YKBNK","YKSLN","YONGA","YUNSA","YYAPI","YYLGD","ZEDUR","ZERGY","ZGYO","ZOREN","ZRGYO"];
+
+// Global & US Stocks + ETFs (NasDaq, S&P, Europe, Funds)
+const GLOBAL_SYMBOLS = [
+  "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "NFLX", "AMD", "INTC", 
+  "QCOM", "AVGO", "CSCO", "ADBE", "CRM", "PEP", "KO", "MCD", "NKE", "JPM", "BAC", "V", "MA",
+  "ASML", "SAP", "NVO", "LVMUY", "TTE", "SNY", "NVS", "BABA", "TSM",
+  "SPY", "QQQ", "DIA", "IWM", "GLD", "SLV", "USO", "ARKK", "VTI", "VOO",
+  "IBIT", "FBTC", "MSTR", "COIN"
+];
+
+function formatYfSymbol(sym: string): string {
+  if (GLOBAL_SYMBOLS.includes(sym)) return sym;
+  return sym.includes(".") ? sym : `${sym}.IS`;
+}
 
 // Sektör eşleme (genişletilmiş)
 const SECTOR_MAP: Record<string, string> = {
@@ -185,7 +183,8 @@ async function fetchBatch(symbols: string[], batchSize = 8): Promise<StockData[]
     const batch = symbols.slice(i, i + batchSize);
     const batchResults = await Promise.allSettled(
       batch.map(async (sym) => {
-        const result = await yfFetch(`${sym}.IS`);
+        const yfSym = formatYfSymbol(sym);
+        const result = await yfFetch(yfSym);
         const meta = parseMeta(result as Record<string, unknown>);
         if (!meta) return null;
         const changePercent = meta.prevClose
@@ -241,7 +240,7 @@ export const fetchSingleStock = createServerFn({ method: "GET" })
     return { symbol: (obj?.symbol || "THYAO").toUpperCase() };
   })
   .handler(async ({ data }) => {
-    const result = await yfFetch(`${data.symbol}.IS`);
+    const result = await yfFetch(formatYfSymbol(data.symbol));
     return parseMeta(result as Record<string, unknown>);
   });
 
@@ -255,7 +254,7 @@ export const fetchStockHistory = createServerFn({ method: "GET" })
   })
   .handler(async ({ data }) => {
     try {
-      const result = await yfFetch(`${data.symbol}.IS`, data.range);
+      const result = await yfFetch(formatYfSymbol(data.symbol), data.range);
       if (!result?.timestamp || !result?.indicators?.quote?.[0]) return [];
       const quotes = result.indicators.quote[0];
       return result.timestamp.map((ts: number, i: number) => ({
@@ -458,7 +457,7 @@ export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     try {
       // Fetch maximum available data (e.g. 5y) to ensure we can slice up to dataCount (max ~1250 days)
-      const result = await yfFetch(`${data.symbol}.IS`, "5y");
+      const result = await yfFetch(formatYfSymbol(data.symbol), "5y");
       if (!result?.timestamp || !result?.indicators?.quote?.[0]) return null;
       
       const quotes = result.indicators.quote[0];
@@ -475,15 +474,6 @@ export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
       return null;
     }
   });
-
-// Global & US Stocks + ETFs (NasDaq, S&P, Europe, Funds)
-const GLOBAL_SYMBOLS = [
-  "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "NFLX", "AMD", "INTC", 
-  "QCOM", "AVGO", "CSCO", "ADBE", "CRM", "PEP", "KO", "MCD", "NKE", "JPM", "BAC", "V", "MA",
-  "ASML", "SAP", "NVO", "LVMUY", "TTE", "SNY", "NVS", "BABA", "TSM",
-  "SPY", "QQQ", "DIA", "IWM", "GLD", "SLV", "USO", "ARKK", "VTI", "VOO",
-  "IBIT", "FBTC", "MSTR", "COIN"
-];
 
 // Fetch history and run Simple Technical Engine for all symbols (AL/SAT only)
 export const fetchTechnicalSignals = createServerFn({ method: "GET" })
