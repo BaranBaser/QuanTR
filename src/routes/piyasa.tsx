@@ -4,7 +4,9 @@ import { stocks, SECTOR_MAP } from "@/lib/market-data";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchBistData, fetchStockHistory } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, RefreshCw, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, BarChart3, Activity, Zap, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react";
+import type { StockData } from "@/lib/ai.functions";
+import { AiAnalysisTable } from "@/components/AiAnalysisTable";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useMemo, useState } from "react";
 
@@ -211,6 +213,10 @@ function PiyasaPage() {
           <div className="animate-pulse text-muted-foreground">Canlı veriler yükleniyor... (48 hisse)</div>
         </div>
       )}
+
+      <div className="mt-4">
+        <AiAnalysisTable />
+      </div>
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">

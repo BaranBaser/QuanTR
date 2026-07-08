@@ -490,5 +490,71 @@ function countryFlag(code: string): string {
   const flags: Record<string, string> = {
     US: "🇺🇸", TR: "🇹🇷", EU: "🇪🇺", GB: "🇬🇧", DE: "🇩🇪", JP: "🇯🇵", CN: "🇨🇳",
   };
-  return flags[code] || "🌍";
 }
+
+// ─── AI Engine Integration ──────────────────────────────────────────────────
+
+import { runAIEngine } from "./ml.engine";
+
+// Fetch history and run ML engine for a single stock
+export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
+  .validator((input: unknown) => {
+    const obj = input as { symbol?: string };
+    return { symbol: (obj?.symbol || "THYAO").toUpperCase() };
+  })
+  .handler(async ({ data }) => {
+    try {
+      // Fetch 1y data to ensure we have enough points for backtesting (100+ days)
+      const result = await yfFetch(`${data.symbol}.IS`, "1y");
+      if (!result?.timestamp || !result?.indicators?.quote?.[0]) return null;
+      
+      const quotes = result.indicators.quote[0];
+      const history = result.timestamp.map((ts: number, i: number) => ({
+        close: quotes.close[i],
+        volume: quotes.volume[i],
+      })).filter((h: any) => h.close != null);
+
+      if (history.length < 30) return null;
+      
+      const analysis = runAIEngine(history);
+      return { symbol: data.symbol, analysis };
+    } catch {
+      return null;
+    }
+  });
+
+// Fetch history and run ML engine for top volume stocks
+export const fetchTopAiAnalysis = createServerFn({ method: "GET" })
+  .validator(() => ({}))
+  .handler(async () => {
+    // Just run for top 15 BIST symbols to avoid rate limits
+    const topSymbols = BIST_SYMBOLS.slice(0, 15);
+    const results = [];
+    
+    // Batch fetch (3 at a time)
+    for (let i = 0; i < topSymbols.length; i += 3) {
+      const batch = topSymbols.slice(i, i + 3);
+      const batchRes = await Promise.allSettled(
+        batch.map(async (sym) => {
+          const result = await yfFetch(`${sym}.IS`, "1y");
+          if (!result?.timestamp || !result?.indicators?.quote?.[0]) return null;
+          const quotes = result.indicators.quote[0];
+          const history = result.timestamp.map((ts: number, idx: number) => ({
+            close: quotes.close[idx],
+            volume: quotes.volume[idx],
+          })).filter((h: any) => h.close != null);
+
+          if (history.length < 30) return null;
+          return { symbol: sym, analysis: runAIEngine(history) };
+        })
+      );
+      
+      results.push(
+        ...batchRes
+          .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled" && r.value != null)
+          .map(r => r.value)
+      );
+    }
+    return results;
+  });
+
