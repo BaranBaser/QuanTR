@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, PageHeader } from "@/components/AppShell";
-import { fetchSingleAiAnalysis, fetchTopAiAnalysis } from "@/lib/ai.functions";
+import { fetchSingleAiAnalysis, fetchTechnicalSignals } from "@/lib/ai.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -14,7 +14,7 @@ function AIEnginePage() {
   const [selectedSymbol, setSelectedSymbol] = useState("THYAO");
   const [shareCount, setShareCount] = useState(100);
   const fetchAi = useServerFn(fetchSingleAiAnalysis);
-  const fetchTopAi = useServerFn(fetchTopAiAnalysis);
+  const fetchTopAi = useServerFn(fetchTechnicalSignals);
 
   const { data: topAiData, isLoading: topLoading } = useQuery({
     queryKey: ["ai-top-analysis"],
@@ -59,16 +59,19 @@ function AIEnginePage() {
           <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-primary" /> AI Sinyal Fırsat Tablosu
           </h2>
+          <p className="text-xs text-muted-foreground mb-4">Piyasadaki popüler hisselerin basit teknik indikatörler (RSI, Trend, Destek/Direnç) bazında günlük taraması. Yalnızca AL veya SAT konumunda olan fırsatlar listelenmektedir.</p>
           {topLoading ? (
-             <div className="text-muted-foreground animate-pulse text-sm">Yapay zeka piyasayı tarıyor... (İlk açılışta 10-15 saniye sürebilir)</div>
+             <div className="text-muted-foreground animate-pulse text-sm">Yapay zeka tüm piyasayı (100+ hisse) tarıyor... (5-10 saniye sürebilir)</div>
+          ) : !topAiData || topAiData.length === 0 ? (
+             <div className="text-muted-foreground text-sm">Şu an teknik olarak belirgin bir AL veya SAT sinyali üreten hisse bulunamadı.</div>
           ) : (
-             <div className="overflow-x-auto">
+             <div className="overflow-x-auto max-h-[400px]">
                <table className="w-full text-left text-sm">
-                 <thead>
+                 <thead className="sticky top-0 bg-card z-10 shadow-sm">
                    <tr className="border-b border-border text-muted-foreground">
                      <th className="pb-3 pr-4 font-semibold">Hisse</th>
-                     <th className="pb-3 pr-4 font-semibold">AI Kararı</th>
-                     <th className="pb-3 pr-4 font-semibold">Güven Skoru</th>
+                     <th className="pb-3 pr-4 font-semibold">Durum</th>
+                     <th className="pb-3 pr-4 font-semibold">Teknik Puan</th>
                      <th className="pb-3 pr-4 font-semibold text-right">Fiyat</th>
                    </tr>
                  </thead>
@@ -77,15 +80,12 @@ function AIEnginePage() {
                      <tr key={item.symbol} className="border-b border-border/50 hover:bg-secondary/50 cursor-pointer transition-colors" onClick={() => setSelectedSymbol(item.symbol)}>
                        <td className="py-3 pr-4 font-bold">{item.symbol}</td>
                        <td className="py-3 pr-4 font-bold">
-                         <span className={`px-2 py-1 rounded text-xs ${item.analysis.decision === 'AL' ? 'bg-[color:var(--success)]/10 text-[color:var(--success)]' : item.analysis.decision === 'SAT' ? 'bg-destructive/10 text-destructive' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                         <span className={`px-2 py-1 rounded text-xs ${item.analysis.decision === 'AL' ? 'bg-[color:var(--success)]/10 text-[color:var(--success)]' : 'bg-destructive/10 text-destructive'}`}>
                            {item.analysis.decision}
                          </span>
                        </td>
                        <td className="py-3 pr-4">
-                         %{item.analysis.confidenceScore.toFixed(0)}
-                         <span className="text-xs text-muted-foreground ml-1">
-                           (Puan: {item.analysis.rawScore?.toFixed(0) || "-"})
-                         </span>
+                         {item.analysis.rawScore.toFixed(0)} Puan
                        </td>
                        <td className="py-3 pr-4 text-right">{item.analysis.currentPrice.toFixed(2)} ₺</td>
                      </tr>

@@ -334,3 +334,72 @@ export async function runAIEngine(history: { close: number; volume: number }[], 
     }
   };
 }
+
+export interface SimpleTechnicalResult {
+  decision: "AL" | "SAT" | "BEKLE";
+  rawScore: number;
+  currentPrice: number;
+}
+
+// Tüm BIST100'e hızlıca uygulanacak hafif teknik tarayıcı motoru
+export function runSimpleTechnicalEngine(
+  history: { close: number; high?: number; low?: number; volume?: number }[],
+  symbol: string
+): SimpleTechnicalResult {
+  const closes = history.map(h => h.close);
+  const currentPrice = closes[closes.length - 1];
+
+  // Temel İndikatörler
+  const rsi = calcRSI(closes, 14);
+  const sma20 = calcSMA(closes, 20);
+  const sma50 = calcSMA(closes, 50);
+  const ema12 = calcEMA(closes, 12);
+  const ema26 = calcEMA(closes, 26);
+  const macd = ema12 - ema26;
+  const macdSignal = calcEMA(closes.slice(-9), 9);
+
+  const trend = sma20 > sma50 ? "YÜKSELEN" : sma20 < sma50 * 0.95 ? "DÜŞEN" : "YATAY";
+
+  let score = 50;
+
+  // RSI
+  if (rsi < 30) score += 20; // Aşırı satım -> Güçlü AL
+  else if (rsi > 70) score -= 20; // Aşırı alım -> Güçlü SAT
+
+  // MACD
+  if (macd > macdSignal) score += 10;
+  else score -= 10;
+
+  // Trend
+  if (trend === "YÜKSELEN") score += 10;
+  else if (trend === "DÜŞEN") score -= 10;
+
+  // Destek / Direnç (Pivot) Analizi (Son günün verisi üzerinden)
+  const lastDay = history[history.length - 1];
+  if (lastDay && lastDay.high && lastDay.low) {
+    const P = (lastDay.high + lastDay.low + lastDay.close) / 3;
+    const R1 = 2 * P - lastDay.low;
+    const S1 = 2 * P - lastDay.high;
+
+    // Fiyat desteğe S1'e çok yakınsa veya altındaysa -> Tepki alımı fırsatı
+    if (currentPrice <= S1 * 1.02) score += 15;
+    // Fiyat dirence R1'e çok yakınsa veya üstündeyse -> Kâr satışı riski
+    else if (currentPrice >= R1 * 0.98) score -= 15;
+  } else {
+    // Eğer high/low yoksa fiyata göre basit sapma
+    if (currentPrice < sma20 * 0.95) score += 10;
+    if (currentPrice > sma20 * 1.05) score -= 10;
+  }
+
+  // Karar
+  let decision: "AL" | "SAT" | "BEKLE" = "BEKLE";
+  if (score >= 60) decision = "AL";
+  else if (score <= 40) decision = "SAT";
+
+  return {
+    decision,
+    rawScore: score,
+    currentPrice
+  };
+}
+

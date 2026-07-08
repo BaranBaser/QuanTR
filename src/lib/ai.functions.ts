@@ -111,57 +111,50 @@ export type StockData = {
   sector: string;
 };
 
-// BIST 100 + popüler hisseler (genişletilmiş)
+// BIST 100 + popüler hisseler (Genişletilmiş 100+)
 const BIST_SYMBOLS = [
-  // Bankacılık (9)
-  "AKBNK", "GARAN", "YKBNK", "HALKB", "VAKBN", "ISCTR", "TSKB", "QNBFB", "SKBNK",
-  // Havacılık (3)
-  "THYAO", "PGSUS", "TAVHL",
-  // Enerji (10)
-  "TUPRS", "PETKM", "ODAS", "AYDEM", "AKSEN", "ENJSA", "ENERY", "CWENE", "EUPWR", "ASTOR",
-  // Holding (6)
-  "SAHOL", "KCHOL", "DOHOL", "BRYAT", "EUREN",
-  // Metal (2)
-  "EREGL", "KRDMD",
-  // Sanayi (6)
-  "SISE", "ARCLK", "ECILC", "BRSAN", "CIMSA", "CVKMD",
-  // Otomotiv (4)
-  "FROTO", "TOASO", "TTRAK", "DOAS",
-  // İletişim (2)
+  // Bankacılık
+  "AKBNK", "GARAN", "YKBNK", "HALKB", "VAKBN", "ISCTR", "TSKB", "QNBFB", "SKBNK", "ALBRK",
+  // Havacılık
+  "THYAO", "PGSUS", "TAVHL", "DOCO",
+  // Enerji
+  "TUPRS", "PETKM", "ODAS", "AYDEM", "AKSEN", "ENJSA", "ENERY", "CWENE", "EUPWR", "ASTOR", "ZOREN", "GWIND", "CANTE",
+  // Holding
+  "SAHOL", "KCHOL", "DOHOL", "BRYAT", "EUREN", "ALARK", "TKFEN", "AGHOL", "NTHOL",
+  // Metal
+  "EREGL", "KRDMD", "ISDMR", "CEMTS", "KCAER",
+  // Sanayi
+  "SISE", "ARCLK", "ECILC", "BRSAN", "CIMSA", "CVKMD", "KORDS", "SASA", "HEKTS",
+  // Otomotiv
+  "FROTO", "TOASO", "TTRAK", "DOAS", "ASUZU",
+  // İletişim
   "TCELL", "TTKOM",
-  // Savunma (1)
-  "ASELS",
-  // Madencilik (3)
-  "KOZAA", "KOZAL", "IHEVA",
-  // Kimya (5)
-  "SASA", "BRISA", "KONTR", "HEKTS", "AKSA",
-  // Perakende (3)
-  "BIMAS", "MGROS", "SOKM",
-  // GYO (4)
-  "EKGYO", "GLYHO", "DAPGM", "PSGYO",
-  // İnşaat (3)
-  "ISMEN", "ENKAI", "ALARK",
-  // Tekstil (3)
-  "KONKA", "MAVI", "CANTE",
-  // Lojistik (1)
-  "TGSAS",
-  // İçecek (3)
-  "AEFES", "CCOLA", "BTCIM",
-  // Teknoloji (3)
-  "VESTL", "EKOS", "FONET",
-  // Sigorta (2)
-  "ANSGR", "TURSG",
-  // Spor (1)
-  "FENER",
-  // Finans (2)
-  "DSTKF", "EFOR",
-  // Diğer popüler hisseler (20+)
-  "OTKAR", "OYAKC", "GESAN", "GLRMK", "GRSEL", "GRTHO",
-  "IEYHO", "IZENR", "KLRHO", "KTLEV", "KUYAS", "MAGEN",
-  "MIATK", "MPARK", "OBAMS", "ODINE", "PAHOL", "PASEU",
-  "PATEK", "QUAGR", "RALYH", "REEDR", "SMRTG", "TABGD",
-  "TRENJ", "TRMET", "ALTNY", "BALSU", "BERA", "BSOKE",
-  "ESEN", "GENIL",
+  // Savunma
+  "ASELS", "OTKAR",
+  // Madencilik
+  "KOZAA", "KOZAL", "IHEVA", "PRKME",
+  // Kimya / Lastik
+  "BRISA", "KONTR", "AKSA", "GOODY",
+  // Perakende
+  "BIMAS", "MGROS", "SOKM", "CRFSA", "MAVI",
+  // GYO
+  "EKGYO", "GLYHO", "DAPGM", "PSGYO", "TRGYO", "ZRGYO", "VKGYO",
+  // İnşaat
+  "ISMEN", "ENKAI", "OYAKC",
+  // Gıda / İçecek
+  "AEFES", "CCOLA", "BTCIM", "TUKAS", "TATGD", "ULKER", "PETUN",
+  // Teknoloji / Bilişim
+  "VESTL", "EKOS", "FONET", "LOGO", "ARDYZ", "MIATK", "KFEIN", "VBTYZ",
+  // Sigorta
+  "ANSGR", "TURSG", "AKGRT",
+  // Sağlık / İlaç
+  "MPARK", "GENIL", "TRILC", "DEVA",
+  // Spor
+  "FENER", "BJKAS", "GSRAY", "TSPOR",
+  // Diğer
+  "GESAN", "GLRMK", "GRSEL", "GRTHO", "IZENR", "QUAGR", "SMRTG", "TABGD", "TRENJ", "BERA", "ESEN", "TGSAS", "EFOR", "DSTKF",
+  // + Eklemeler
+  "AYGAZ", "CCOLA", "CIMSA", "CLEBI", "DGNMO", "DOAS", "EGEEN", "ENKAI", "GUBRF"
 ];
 
 // Sektör eşleme (genişletilmiş)
@@ -494,7 +487,7 @@ function countryFlag(code: string): string {
 
 // ─── AI Engine Integration ──────────────────────────────────────────────────
 
-import { runAIEngine } from "./ml.engine";
+import { runAIEngine, runSimpleTechnicalEngine } from "./ml.engine";
 
 // Fetch history and run ML engine for a single stock
 export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
@@ -526,30 +519,38 @@ export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
     }
   });
 
-// Fetch history and run ML engine for top volume stocks
-export const fetchTopAiAnalysis = createServerFn({ method: "GET" })
+// Fetch history and run Simple Technical Engine for all BIST_SYMBOLS (AL/SAT only)
+export const fetchTechnicalSignals = createServerFn({ method: "GET" })
   .validator(() => ({}))
   .handler(async () => {
-    // Just run for top 15 BIST symbols to avoid rate limits
-    const topSymbols = BIST_SYMBOLS.slice(0, 15);
+    // We will scan all symbols in BIST_SYMBOLS
+    const symbols = Array.from(new Set(BIST_SYMBOLS)); // Unique symbols
     const results = [];
     
-    // Batch fetch (3 at a time)
-    for (let i = 0; i < topSymbols.length; i += 3) {
-      const batch = topSymbols.slice(i, i + 3);
+    // Batch fetch (10 at a time for speed, we only need 60 days of data, very small payload)
+    for (let i = 0; i < symbols.length; i += 10) {
+      const batch = symbols.slice(i, i + 10);
       const batchRes = await Promise.allSettled(
         batch.map(async (sym) => {
-          const result = await yfFetch(`${sym}.IS`, "5y");
+          const result = await yfFetch(`${sym}.IS`, "3mo"); // 3 months is ~60 trading days, enough for SMA50 and RSI
           if (!result?.timestamp || !result?.indicators?.quote?.[0]) return null;
           const quotes = result.indicators.quote[0];
           const history = result.timestamp.map((ts: number, idx: number) => ({
             close: quotes.close[idx],
+            high: quotes.high[idx],
+            low: quotes.low[idx],
             volume: quotes.volume[idx],
           })).filter((h: any) => h.close != null);
 
-          if (history.length < 30) return null;
-          const analysis = await runAIEngine(history, sym, 252); // Default to 1 year for top list
-          return { symbol: sym, analysis };
+          if (history.length < 30) return null; // We need at least 30 days for meaningful technicals
+          
+          const analysis = runSimpleTechnicalEngine(history, sym);
+          
+          // Sadece AL ve SAT durumunda olanları dön
+          if (analysis.decision === "AL" || analysis.decision === "SAT") {
+            return { symbol: sym, analysis };
+          }
+          return null;
         })
       );
       
@@ -559,6 +560,10 @@ export const fetchTopAiAnalysis = createServerFn({ method: "GET" })
           .map(r => r.value)
       );
     }
+    
+    // Puanına göre en yüksekten en düşüğe (AL için üstte, SAT için en altta) sırala
+    results.sort((a, b) => b.analysis.rawScore - a.analysis.rawScore);
+    
     return results;
   });
 

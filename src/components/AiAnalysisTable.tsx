@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchTopAiAnalysis } from "@/lib/ai.functions";
-import { RefreshCw, Activity, Brain, Target, Info, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { fetchTechnicalSignals } from "@/lib/ai.functions";
+import { RefreshCw, Target, Info, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 
@@ -9,7 +9,7 @@ export function AiAnalysisTable() {
     queryKey: ["ai-top-analysis"],
     queryFn: async () => {
       try {
-        return await fetchTopAiAnalysis({});
+        return await fetchTechnicalSignals({});
       } catch {
         return [];
       }
@@ -18,14 +18,14 @@ export function AiAnalysisTable() {
     throwOnError: false,
   });
 
-  type SortKey = "symbol" | "decision" | "confidence" | "trend" | "prediction";
-  const [sortKey, setSortKey] = useState<SortKey | null>("confidence");
+  type SortKey = "symbol" | "decision" | "score" | "price";
+  const [sortKey, setSortKey] = useState<SortKey | null>("score");
   const [sortAsc, setSortAsc] = useState(false);
 
   const sortedData = useMemo(() => {
     if (!data) return [];
     
-    // Sadece AL ve SAT olanları filtrele
+    // Zaten AL ve SAT filtreli geliyor, ama garanti olsun
     let arr = data.filter((row: any) => row.analysis.decision === "AL" || row.analysis.decision === "SAT");
     
     if (sortKey) {
@@ -38,16 +38,8 @@ export function AiAnalysisTable() {
             av = dmap[a.analysis.decision as keyof typeof dmap] || 0; 
             bv = dmap[b.analysis.decision as keyof typeof dmap] || 0; 
             break;
-          case "confidence": av = a.analysis.confidenceScore; bv = b.analysis.confidenceScore; break;
-          case "trend": 
-            const tmap = { "YÜKSELEN": 3, "YATAY": 2, "DÜŞEN": 1 };
-            av = tmap[a.analysis.trend as keyof typeof tmap] || 0; 
-            bv = tmap[b.analysis.trend as keyof typeof tmap] || 0; 
-            break;
-          case "prediction": 
-            av = a.analysis.predictions.find((p: any) => p.horizonDays === 20)?.expectedReturnPercent || 0;
-            bv = b.analysis.predictions.find((p: any) => p.horizonDays === 20)?.expectedReturnPercent || 0;
-            break;
+          case "score": av = a.analysis.rawScore; bv = b.analysis.rawScore; break;
+          case "price": av = a.analysis.currentPrice; bv = b.analysis.currentPrice; break;
           default: return 0;
         }
         if (typeof av === "string" && typeof bv === "string") {
@@ -93,32 +85,29 @@ export function AiAnalysisTable() {
 
       <p className="text-xs text-muted-foreground mb-4 flex items-center gap-1.5">
         <Info className="w-4 h-4" />
-        Makine öğrenmesi modelleri (Lineer Regresyon, Momentum, Mean Reversion) kullanılarak üretilen tamamen yerel analizler.
+        Piyasadaki 100+ hissenin Destek/Direnç, RSI, SMA gibi temel teknik göstergelere göre hızlı günlük taraması.
       </p>
 
       {isLoading ? (
         <div className="flex justify-center p-8 text-muted-foreground animate-pulse">
-          Modeller hesaplanıyor...
+          Piyasa Taranıyor (100+ Hisse)...
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs text-muted-foreground border-b border-border">
+        <div className="overflow-x-auto max-h-[400px]">
+          <table className="w-full text-sm relative">
+            <thead className="text-xs text-muted-foreground border-b border-border sticky top-0 bg-card z-10 shadow-sm">
               <tr>
                 <th className="text-left font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("symbol")}>
                   <span className="inline-flex items-center gap-1">Hisse <SortIcon k="symbol" /></span>
                 </th>
                 <th className="text-center font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("decision")}>
-                  <span className="inline-flex items-center justify-center gap-1">Karar <SortIcon k="decision" /></span>
+                  <span className="inline-flex items-center justify-center gap-1">Durum <SortIcon k="decision" /></span>
                 </th>
-                <th className="text-center font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("confidence")}>
-                  <span className="inline-flex items-center justify-center gap-1">Güven Skoru <SortIcon k="confidence" /></span>
+                <th className="text-center font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("score")}>
+                  <span className="inline-flex items-center justify-center gap-1">Teknik Puan <SortIcon k="score" /></span>
                 </th>
-                <th className="text-right font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("trend")}>
-                  <span className="inline-flex items-center justify-end gap-1">Trend <SortIcon k="trend" /></span>
-                </th>
-                <th className="text-right font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("prediction")}>
-                  <span className="inline-flex items-center justify-end gap-1">20G Beklenti <SortIcon k="prediction" /></span>
+                <th className="text-right font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("price")}>
+                  <span className="inline-flex items-center justify-end gap-1">Fiyat <SortIcon k="price" /></span>
                 </th>
               </tr>
             </thead>
@@ -134,50 +123,23 @@ export function AiAnalysisTable() {
                     <td className="text-center py-3">
                       <span className={`px-2.5 py-1 text-xs font-bold rounded-lg ${
                         row.analysis.decision === "AL" ? "bg-[color:var(--success)]/20 text-[color:var(--success)]" :
-                        row.analysis.decision === "SAT" ? "bg-destructive/20 text-destructive" :
-                        "bg-muted text-muted-foreground"
+                        "bg-destructive/20 text-destructive"
                       }`}>
                         {row.analysis.decision}
                       </span>
                     </td>
-                    <td className="text-center py-3">
-                      <div className="w-full bg-secondary h-1.5 rounded-full mt-1.5 max-w-[80px] mx-auto overflow-hidden">
-                        <div 
-                          className="h-full rounded-full" 
-                          style={{ 
-                            width: `${row.analysis.confidenceScore}%`,
-                            backgroundColor: row.analysis.confidenceScore > 70 ? 'var(--success)' : row.analysis.confidenceScore > 40 ? 'var(--primary)' : 'var(--destructive)'
-                          }} 
-                        />
-                      </div>
-                      <div className="text-[10px] mt-1 text-muted-foreground font-medium">%{row.analysis.confidenceScore.toFixed(0)}</div>
+                    <td className="text-center py-3 font-semibold">
+                      {row.analysis.rawScore.toFixed(0)} Puan
                     </td>
-                    <td className="text-right py-3 text-xs">
-                      {row.analysis.trend === "YÜKSELEN" ? (
-                        <span className="text-[color:var(--success)] font-medium">Yükselen</span>
-                      ) : row.analysis.trend === "DÜŞEN" ? (
-                        <span className="text-destructive font-medium">Düşen</span>
-                      ) : (
-                        <span className="text-muted-foreground font-medium">Yatay</span>
-                      )}
-                    </td>
-                    <td className="text-right py-3">
-                      {(() => {
-                        const pred20 = row.analysis.predictions.find((p: any) => p.horizonDays === 20);
-                        if (!pred20) return "-";
-                        return (
-                          <div className={`text-xs font-bold ${pred20.expectedReturnPercent >= 0 ? "text-[color:var(--success)]" : "text-destructive"}`}>
-                            {pred20.expectedReturnPercent >= 0 ? "+" : ""}{pred20.expectedReturnPercent.toFixed(2)}%
-                          </div>
-                        );
-                      })()}
+                    <td className="text-right py-3 text-xs font-bold">
+                      {row.analysis.currentPrice.toFixed(2)} ₺
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="text-center p-4 text-muted-foreground text-xs">
-                    Analiz üretilemedi veya veri yok.
+                  <td colSpan={4} className="text-center p-4 text-muted-foreground text-xs">
+                    Analiz üretilemedi veya belirgin bir sinyal yok.
                   </td>
                 </tr>
               )}
@@ -188,3 +150,4 @@ export function AiAnalysisTable() {
     </div>
   );
 }
+
