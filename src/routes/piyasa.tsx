@@ -1,0 +1,237 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { AppShell, PageHeader, Sparkline, genLine } from "@/components/AppShell";
+import { stocks, SECTOR_MAP } from "@/lib/market-data";
+import { useServerFn } from "@tanstack/react-start";
+import { fetchBistData } from "@/lib/ai.functions";
+import { useQuery } from "@tanstack/react-query";
+import { TrendingUp, TrendingDown, RefreshCw, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { useMemo, useState } from "react";
+
+export const Route = createFileRoute("/piyasa")({ component: PiyasaPage });
+
+type SortKey = "symbol" | "sector" | "price" | "changePercent" | "volume" | "high52" | "low52";
+
+function PiyasaPage() {
+  const [tab, setTab] = useState<"all" | "gainers" | "losers" | "volume">("all");
+  const [search, setSearch] = useState("");
+  const [sectorFilter, setSectorFilter] = useState("Tümü");
+  const [sortKey, setSortKey] = useState<SortKey>("symbol");
+  const [sortAsc, setSortAsc] = useState(true);
+  const fetchBist = useServerFn(fetchBistData);
+
+  const { data: liveData = [], isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["bist-piyasa"],
+    queryFn: async () => {
+      try { return await fetchBist({}); } catch { return []; }
+    },
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+    throwOnError: false,
+  });
+
+  const displayData = liveData.length > 0
+    ? liveData.map((d) => ({
+        ...d,
+        sector: SECTOR_MAP[d.symbol] || "Diğer",
+        marketCap: stocks.find((s) => s.symbol === d.symbol)?.marketCap || 0,
+        pe: stocks.find((s) => s.symbol === d.symbol)?.pe || 0,
+      }))
+    : stocks;
+
+  const sectors = ["Tümü", ...Array.from(new Set(displayData.map((s) => s.sector)))];
+
+  const filtered = useMemo(() => {
+    let arr = [...displayData];
+
+    // Arama filtresi
+    if (search) {
+      const q = search.toUpperCase();
+      arr = arr.filter((s) =>
+        s.symbol.includes(q) || s.name.toUpperCase().includes(q)
+      );
+    }
+
+    // Sektör filtresi
+    if (sectorFilter !== "Tümü") {
+      arr = arr.filter((s) => s.sector === sectorFilter);
+    }
+
+    // Tab filtresi
+    if (tab === "gainers") arr = arr.filter((s) => s.changePercent > 0);
+    if (tab === "losers") arr = arr.filter((s) => s.changePercent < 0);
+
+    // Sıralama
+    arr.sort((a, b) => {
+      let av: number | string, bv: number | string;
+      switch (sortKey) {
+        case "symbol": av = a.symbol; bv = b.symbol; return sortAsc ? av.localeCompare(bv as string) : (bv as string).localeCompare(av as string);
+        case "sector": av = a.sector; bv = b.sector; return sortAsc ? av.localeCompare(bv as string) : (bv as string).localeCompare(av as string);
+        case "price": av = a.price; bv = b.price; break;
+        case "changePercent": av = a.changePercent; bv = b.changePercent; break;
+        case "volume": av = a.volume; bv = b.volume; break;
+        case "high52": av = a.high52; bv = b.high52; break;
+        case "low52": av = a.low52; bv = b.low52; break;
+        default: return 0;
+      }
+      return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    });
+
+    return arr;
+  }, [tab, search, sectorFilter, sortKey, sortAsc, displayData]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortAsc(!sortAsc);
+    else { setSortKey(key); setSortAsc(true); }
+  };
+
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return <ArrowUpDown className="w-3 h-3 opacity-30" />;
+    return sortAsc ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />;
+  };
+
+  const gainers = displayData.filter((s) => s.changePercent > 0).length;
+  const losers = displayData.filter((s) => s.changePercent < 0).length;
+  const totalVol = displayData.reduce((a, b) => a + b.volume, 0);
+  const avgChange = displayData.length > 0 ? displayData.reduce((a, b) => a + b.changePercent, 0) / displayData.length : 0;
+
+  return (
+    <AppShell>
+      <PageHeader
+        title="Piyasa Özeti"
+        subtitle={`${displayData.length} hisse — canlı fiyatlar, sektör analizi ve detaylı tablo.`}
+        action={
+          <button onClick={() => refetch()} disabled={isFetching} className="bg-secondary border border-border rounded-lg px-4 py-2 text-sm inline-flex items-center gap-2 hover:border-primary/40 disabled:opacity-50">
+            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+            {isFetching ? "Güncelleniyor..." : "Yenile"}
+          </button>
+        }
+      />
+
+      {/* Özet kartları */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {[
+          { label: "Toplam Hisse", value: displayData.length.toString(), sub: "BIST" },
+          { label: "Yükselen", value: gainers.toString(), sub: "adet", up: true },
+          { label: "Düşen", value: losers.toString(), sub: "adet", up: false },
+          { label: "Toplam Hacim", value: `${(totalVol / 1e9).toFixed(1)} Mlr TL`, sub: "günlük" },
+          { label: "Ort. Değişim", value: `${avgChange >= 0 ? "+" : ""}${avgChange.toFixed(2)}%`, sub: "ortalama", up: avgChange >= 0 },
+        ].map((k) => (
+          <div key={k.label} className="rounded-xl border border-border bg-card p-4">
+            <div className="text-xs text-muted-foreground">{k.label}</div>
+            <div className={`text-2xl font-bold mt-1 ${k.up === true ? "text-[color:var(--success)]" : k.up === false ? "text-destructive" : ""}`}>{k.value}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{k.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Arama ve filtreler */}
+      <div className="flex flex-wrap gap-3">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Hisse ara... (THY, ASELS, Garanti)"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-2.5 text-sm focus:border-primary/60 focus:outline-none"
+          />
+        </div>
+        <select
+          value={sectorFilter}
+          onChange={(e) => setSectorFilter(e.target.value)}
+          className="bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm min-w-[160px]"
+        >
+          {sectors.map((s) => <option key={s}>{s}</option>)}
+        </select>
+      </div>
+
+      {/* Tab butonları */}
+      <div className="flex items-center gap-1 p-1 bg-secondary/50 rounded-xl w-fit">
+        {[
+          { k: "all", l: `Tümü (${displayData.length})` },
+          { k: "gainers", l: `Yükselen (${gainers})` },
+          { k: "losers", l: `Düşen (${losers})` },
+          { k: "volume", l: "En Yüksek Hacim" },
+        ].map((t) => (
+          <button
+            key={t.k}
+            onClick={() => setTab(t.k as typeof tab)}
+            className={`px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${tab === t.k ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      {/* Tablo */}
+      {isLoading && (
+        <div className="rounded-xl border border-border bg-card p-8 text-center">
+          <div className="animate-pulse text-muted-foreground">Canlı veriler yükleniyor... (48 hisse)</div>
+        </div>
+      )}
+
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs text-muted-foreground">
+              <tr className="border-b border-border bg-secondary/30">
+                <th className="text-left font-normal p-3 cursor-pointer hover:text-foreground" onClick={() => handleSort("symbol")}>
+                  <span className="inline-flex items-center gap-1">Hisse <SortIcon k="symbol" /></span>
+                </th>
+                <th className="text-left font-normal cursor-pointer hover:text-foreground" onClick={() => handleSort("sector")}>
+                  <span className="inline-flex items-center gap-1">Sektör <SortIcon k="sector" /></span>
+                </th>
+                <th className="text-right font-normal cursor-pointer hover:text-foreground" onClick={() => handleSort("price")}>
+                  <span className="inline-flex items-center gap-1">Fiyat <SortIcon k="price" /></span>
+                </th>
+                <th className="text-right font-normal cursor-pointer hover:text-foreground" onClick={() => handleSort("changePercent")}>
+                  <span className="inline-flex items-center gap-1">Değişim <SortIcon k="changePercent" /></span>
+                </th>
+                <th className="text-right font-normal cursor-pointer hover:text-foreground" onClick={() => handleSort("volume")}>
+                  <span className="inline-flex items-center gap-1">Hacim <SortIcon k="volume" /></span>
+                </th>
+                <th className="text-right font-normal">52H Düşük</th>
+                <th className="text-right font-normal">52H Yüksek</th>
+                <th className="text-right font-normal pr-3">Grafik</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((s, i) => (
+                <tr key={s.symbol} className="border-b border-border hover:bg-secondary/40 transition-colors">
+                  <td className="p-3">
+                    <Link to="/analiz" search={{ symbol: s.symbol }} className="font-semibold hover:text-primary">{s.symbol}</Link>
+                    <div className="text-xs text-muted-foreground truncate max-w-[120px]">{s.name}</div>
+                  </td>
+                  <td className="text-muted-foreground text-xs">{s.sector}</td>
+                  <td className="text-right font-medium">{typeof s.price === "number" ? s.price.toFixed(2) : s.price} TL</td>
+                  <td className="text-right">
+                    <span className={`inline-flex items-center gap-1 font-semibold ${s.changePercent >= 0 ? "text-[color:var(--success)]" : "text-destructive"}`}>
+                      {s.changePercent >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                      {s.changePercent >= 0 ? "+" : ""}{typeof s.changePercent === "number" ? s.changePercent.toFixed(2) : s.changePercent}%
+                    </span>
+                  </td>
+                  <td className="text-right text-muted-foreground text-xs">{(s.volume / 1e6).toFixed(0)} Mn</td>
+                  <td className="text-right text-muted-foreground text-xs">{s.low52}</td>
+                  <td className="text-right text-muted-foreground text-xs">{s.high52}</td>
+                  <td className="text-right pr-3">
+                    <div className="w-20 inline-block">
+                      <Sparkline data={genLine(i + 3, 16, s.changePercent >= 0 ? "up" : "down")} color={s.changePercent >= 0 ? "oklch(0.72 0.19 145)" : "oklch(0.65 0.22 25)"} height={24} width={80} fill={false} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && !isLoading && (
+                <tr><td colSpan={8} className="p-8 text-center text-muted-foreground text-sm">Aramanızla eşleşen hisse bulunamadı.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {filtered.length > 0 && (
+          <div className="p-3 border-t border-border text-xs text-muted-foreground text-right">
+            {filtered.length} hisse gösteriliyor
+          </div>
+        )}
+      </div>
+    </AppShell>
+  );
+}
