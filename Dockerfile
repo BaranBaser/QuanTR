@@ -22,7 +22,7 @@ RUN pip3 install --no-cache-dir -r ml-api/requirements.txt
 
 # Node dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm install --include=dev
 
 # App source
 COPY . .
