@@ -4,6 +4,7 @@ from typing import List
 from models import run_all_models
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import asyncio
 
 app = FastAPI()
 
@@ -15,6 +16,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+predict_lock = asyncio.Lock()
+
 class PredictRequest(BaseModel):
     symbol: str
     prices: List[float]
@@ -25,11 +28,13 @@ def read_root():
     return {"status": "ok", "message": "Stockbear Advanced ML API is running"}
 
 @app.post("/predict")
-def predict(req: PredictRequest):
+async def predict(req: PredictRequest):
     if len(req.prices) < 30:
-        return {"error": "Not enough data for prediction"}
-    
-    predictions = run_all_models(req.prices, req.horizons)
+        raise HTTPException(status_code=400, detail="At least 30 data points required")
+        
+    async with predict_lock:
+        predictions = await asyncio.to_thread(run_all_models, req.prices, req.horizons)
+        
     return {"symbol": req.symbol, "predictions": predictions}
 
 if __name__ == "__main__":

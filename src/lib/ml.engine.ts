@@ -222,7 +222,7 @@ async function calculateEnsemblePrediction(closes: number[], horizon: number, py
 }
 
 // Ana AI Motoru Çalıştırıcısı
-export async function runAIEngine(history: { close: number; volume: number }[], symbol: string, dataCount: number = 252): Promise<EngineResult> {
+export async function runAIEngine(history: { close: number; volume: number }[], symbol: string, dataCount: number = 252, skipPython: boolean = false): Promise<EngineResult> {
   const slicedHistory = history.slice(-dataCount);
   if (slicedHistory.length < 30) {
     throw new Error("Analiz için en az 30 günlük geçmiş veri gereklidir.");
@@ -233,24 +233,26 @@ export async function runAIEngine(history: { close: number; volume: number }[], 
 
   // Try fetching from Python Backend
   let pythonData = null;
-  try {
-    const pyApiUrl = process.env.PYTHON_API_URL || "https://stockbear-ml-api.onrender.com";
-    const res = await fetch(`${pyApiUrl}/predict`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        symbol: symbol,
-        prices: closes,
-        horizons: [1, 5, 20, 60, 120]
-      }),
-      signal: AbortSignal.timeout(6000)
-    });
-    if (res.ok) {
-      const data = await res.json();
-      pythonData = data.predictions;
+  if (!skipPython) {
+    try {
+      const pyApiUrl = process.env.PYTHON_API_URL || "https://stockbear-ml-api.onrender.com";
+      const res = await fetch(`${pyApiUrl}/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: symbol,
+          prices: closes,
+          horizons: [1, 5, 20, 60, 120]
+        }),
+        signal: AbortSignal.timeout(6000)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        pythonData = data.predictions;
+      }
+    } catch (e) {
+      console.log("Python backend not reachable or timed out. Falling back to local TS models.", e);
     }
-  } catch (e) {
-    console.log("Python backend not reachable or timed out. Falling back to local TS models.", e);
   }
 
   // Temel İndikatörler
