@@ -12,7 +12,7 @@ export const Route = createFileRoute("/ai")({ component: AIEnginePage });
 
 function AIEnginePage() {
   const [selectedSymbol, setSelectedSymbol] = useState("THYAO");
-  const [dataCount, setDataCount] = useState(252);
+  const [shareCount, setShareCount] = useState(100);
   const fetchAi = useServerFn(fetchSingleAiAnalysis);
   const fetchTopAi = useServerFn(fetchTopAiAnalysis);
 
@@ -25,9 +25,9 @@ function AIEnginePage() {
   });
 
   const { data: aiData, isLoading } = useQuery({
-    queryKey: ["ai-analysis-full", selectedSymbol, dataCount],
+    queryKey: ["ai-analysis-full", selectedSymbol],
     queryFn: async () => {
-      try { return await fetchAi({ data: { symbol: selectedSymbol, dataCount } }); } catch { return null; }
+      try { return await fetchAi({ data: { symbol: selectedSymbol, dataCount: 252 } }); } catch { return null; }
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -106,20 +106,29 @@ function AIEnginePage() {
             </select>
           </div>
           <div className="flex-1">
-            <label className="text-sm font-semibold mb-2 block text-muted-foreground flex justify-between">
-              <span>Tarihsel Veri Limiti (Adet/Gün):</span>
-              <span className="text-primary">{dataCount} Gün</span>
+            <label className="text-sm font-semibold mb-2 block text-muted-foreground flex justify-between items-center">
+              <span>Portföydeki Hisse / Fon Adedi:</span>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="number" 
+                  min="1"
+                  className="w-24 bg-background border border-border rounded px-3 py-1 text-right font-bold focus:outline-none focus:border-primary/60 transition-colors"
+                  value={shareCount}
+                  onChange={(e) => setShareCount(Math.max(1, parseInt(e.target.value) || 1))}
+                />
+                <span className="text-primary font-bold">Adet</span>
+              </div>
             </label>
             <input 
               type="range" 
-              min="30" 
-              max="1000" 
-              step="10" 
-              value={dataCount} 
-              onChange={(e) => setDataCount(parseInt(e.target.value))}
-              className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+              min="1" 
+              max="5000" 
+              step="1" 
+              value={shareCount} 
+              onChange={(e) => setShareCount(parseInt(e.target.value))}
+              className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary mt-3"
             />
-            <div className="text-xs text-muted-foreground mt-2">Alttaki süreç hesapları ve model eğitimleri bu süreye göre yapılır.</div>
+            <div className="text-xs text-muted-foreground mt-3">Tüm olası kâr/zarar ve projeksiyonlar elinizdeki bu adede göre hesaplanır.</div>
           </div>
         </div>
 
@@ -161,9 +170,9 @@ function AIEnginePage() {
               </div>
 
               <div className="rounded-xl p-6 border border-border bg-card flex flex-col items-center justify-center text-center shadow-md">
-                <div className="text-sm font-bold tracking-widest uppercase mb-2 text-muted-foreground">Şu Anki Fiyat</div>
-                <div className="text-4xl font-black">{aiData.analysis.currentPrice.toFixed(2)} TL</div>
-                <div className="text-sm text-muted-foreground mt-2">Volatilite: %{aiData.analysis.volatility.toFixed(2)}</div>
+                <div className="text-sm font-bold tracking-widest uppercase mb-2 text-muted-foreground">Şu Anki Toplam Değer</div>
+                <div className="text-4xl font-black">{(aiData.analysis.currentPrice * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺</div>
+                <div className="text-sm text-muted-foreground mt-2">Birim Fiyat: {aiData.analysis.currentPrice.toFixed(2)} ₺ | Volatilite: %{aiData.analysis.volatility.toFixed(2)}</div>
               </div>
             </div>
 
@@ -182,7 +191,10 @@ function AIEnginePage() {
                     </h3>
                     <div className="text-right">
                       <div className={`text-lg font-black ${p.expectedReturnPercent >= 0 ? "text-[color:var(--success)]" : "text-destructive"}`}>
-                        {p.expectedPrice.toFixed(2)} TL ({p.expectedReturnPercent >= 0 ? "+" : ""}{p.expectedReturnPercent.toFixed(2)}%)
+                        {(p.expectedPrice * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺ 
+                        <span className="text-sm ml-2">
+                          ({p.expectedReturnPercent >= 0 ? "+" : ""}{((p.expectedPrice - aiData.analysis.currentPrice) * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺ Kâr/Zarar)
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -212,8 +224,8 @@ function AIEnginePage() {
                         <div className="font-semibold text-destructive">± %{p.rmse.toFixed(2)}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-muted-foreground text-xs mb-1">Hesaplanan Güvenlik Bandı</div>
-                        <div className="font-semibold">{p.lowerBand.toFixed(2)} - {p.upperBand.toFixed(2)} TL</div>
+                        <div className="text-muted-foreground text-xs mb-1">Toplam Güvenlik Bandı Değeri</div>
+                        <div className="font-semibold">{(p.lowerBand * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺ - {(p.upperBand * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺</div>
                       </div>
                     </div>
 
@@ -230,15 +242,15 @@ function AIEnginePage() {
               <div className="h-[400px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={[
-                    { name: "Şu An", Ensemble: aiData.analysis.currentPrice, AltBant: aiData.analysis.currentPrice, ÜstBant: aiData.analysis.currentPrice, LinearRegression: aiData.analysis.currentPrice, MomentumExtrapolation: aiData.analysis.currentPrice, MeanReversion: aiData.analysis.currentPrice, EMA_Projection: aiData.analysis.currentPrice },
+                    { name: "Şu An", Ensemble: aiData.analysis.currentPrice * shareCount, AltBant: aiData.analysis.currentPrice * shareCount, ÜstBant: aiData.analysis.currentPrice * shareCount, LinearRegression: aiData.analysis.currentPrice * shareCount, MomentumExtrapolation: aiData.analysis.currentPrice * shareCount, MeanReversion: aiData.analysis.currentPrice * shareCount, EMA_Projection: aiData.analysis.currentPrice * shareCount },
                     ...aiData.analysis.predictions.map((p: any) => {
                       const obj: any = {
                         name: mapHorizonToLabel(p.horizonDays),
-                        Ensemble: p.expectedPrice,
-                        AltBant: p.lowerBand,
-                        ÜstBant: p.upperBand,
+                        Ensemble: p.expectedPrice * shareCount,
+                        AltBant: p.lowerBand * shareCount,
+                        ÜstBant: p.upperBand * shareCount,
                       };
-                      p.models.forEach((m: any) => { obj[m.model] = m.prediction; });
+                      p.models.forEach((m: any) => { obj[m.model] = m.prediction * shareCount; });
                       return obj;
                     })
                   ]}>

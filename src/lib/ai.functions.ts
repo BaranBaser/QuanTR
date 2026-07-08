@@ -548,8 +548,7 @@ export const fetchTopAiAnalysis = createServerFn({ method: "GET" })
           })).filter((h: any) => h.close != null);
 
           if (history.length < 30) return null;
-          // IMPORTANT: skipPython = true for the top list to prevent Out Of Memory on Render (512MB RAM limit)
-          const analysis = await runAIEngine(history, sym, 252, true); 
+          const analysis = await runAIEngine(history, sym, 252); // Default to 1 year for top list
           return { symbol: sym, analysis };
         })
       );

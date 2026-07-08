@@ -9,7 +9,6 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.svm import SVR
 import warnings
 warnings.filterwarnings('ignore')
-torch.set_num_threads(1) # Crucial for 512MB RAM environments
 
 class SimpleLSTM(nn.Module):
     def __init__(self, input_size=1, hidden_layer_size=16, output_size=1):
