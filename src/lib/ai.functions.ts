@@ -519,49 +519,61 @@ export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
     }
   });
 
-// Fetch history and run Simple Technical Engine for all BIST_SYMBOLS (AL/SAT only)
+// Global & US Stocks + ETFs (NasDaq, S&P, Europe, Funds)
+const GLOBAL_SYMBOLS = [
+  "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "NFLX", "AMD", "INTC", 
+  "QCOM", "AVGO", "CSCO", "ADBE", "CRM", "PEP", "KO", "MCD", "NKE", "JPM", "BAC", "V", "MA",
+  "ASML", "SAP", "NVO", "LVMUY", "TTE", "SNY", "NVS", "BABA", "TSM",
+  "SPY", "QQQ", "DIA", "IWM", "GLD", "SLV", "USO", "ARKK", "VTI", "VOO",
+  "IBIT", "FBTC", "MSTR", "COIN"
+];
+
+// Fetch history and run Simple Technical Engine for all symbols (AL/SAT only)
 export const fetchTechnicalSignals = createServerFn({ method: "GET" })
   .validator(() => ({}))
   .handler(async () => {
-    // We will scan all symbols in BIST_SYMBOLS
-    const symbols = Array.from(new Set(BIST_SYMBOLS)); // Unique symbols
+    // Scan all BIST + Global symbols
+    const bist = BIST_SYMBOLS.map((s) => `${s}.IS`);
+    const allSymbols = Array.from(new Set([...bist, ...GLOBAL_SYMBOLS]));
     const results = [];
     
-    // Batch fetch (10 at a time for speed, we only need 60 days of data, very small payload)
-    for (let i = 0; i < symbols.length; i += 10) {
-      const batch = symbols.slice(i, i + 10);
-      const batchRes = await Promise.allSettled(
-        batch.map(async (sym) => {
-          const result = await yfFetch(`${sym}.IS`, "3mo"); // 3 months is ~60 trading days, enough for SMA50 and RSI
-          if (!result?.timestamp || !result?.indicators?.quote?.[0]) return null;
-          const quotes = result.indicators.quote[0];
-          const history = result.timestamp.map((ts: number, idx: number) => ({
-            close: quotes.close[idx],
-            high: quotes.high[idx],
-            low: quotes.low[idx],
-            volume: quotes.volume[idx],
-          })).filter((h: any) => h.close != null);
-
-          if (history.length < 30) return null; // We need at least 30 days for meaningful technicals
-          
-          const analysis = runSimpleTechnicalEngine(history, sym);
-          
-          // Sadece AL ve SAT durumunda olanları dön
-          if (analysis.decision === "AL" || analysis.decision === "SAT") {
-            return { symbol: sym, analysis };
+    // Batch fetch (50 at a time for maximum speed with spark endpoint)
+    for (let i = 0; i < allSymbols.length; i += 50) {
+      const batch = allSymbols.slice(i, i + 50);
+      try {
+        const url = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${batch.join(",")}&range=3mo&interval=1d`;
+        const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+        
+        if (res.ok) {
+          const json = await res.json();
+          if (json.spark && json.spark.result) {
+            for (const symResult of json.spark.result) {
+              const rawSymbol = symResult.symbol;
+              const sym = rawSymbol.replace(".IS", ""); // Display without suffix
+              
+              const resp = symResult.response?.[0];
+              if (!resp?.timestamp || !resp?.indicators?.quote?.[0]?.close) continue;
+              
+              const closes = resp.indicators.quote[0].close as number[];
+              const history = closes.map(c => ({ close: c })).filter(h => h.close != null);
+              
+              if (history.length < 30) continue;
+              
+              const analysis = runSimpleTechnicalEngine(history, sym);
+              
+              // Return ONLY "AL" and "SAT" signals
+              if (analysis.decision === "AL" || analysis.decision === "SAT") {
+                results.push({ symbol: sym, analysis });
+              }
+            }
           }
-          return null;
-        })
-      );
-      
-      results.push(
-        ...batchRes
-          .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled" && r.value != null)
-          .map(r => r.value)
-      );
+        }
+      } catch (e) {
+        // Ignore batch errors and continue
+      }
     }
     
-    // Puanına göre en yüksekten en düşüğe (AL için üstte, SAT için en altta) sırala
+    // Sort by highest score first
     results.sort((a, b) => b.analysis.rawScore - a.analysis.rawScore);
     
     return results;
