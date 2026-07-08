@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, PageHeader } from "@/components/AppShell";
-import { fetchSingleAiAnalysis } from "@/lib/ai.functions";
+import { fetchSingleAiAnalysis, fetchTopAiAnalysis } from "@/lib/ai.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -12,12 +12,22 @@ export const Route = createFileRoute("/ai")({ component: AIEnginePage });
 
 function AIEnginePage() {
   const [selectedSymbol, setSelectedSymbol] = useState("THYAO");
+  const [dataCount, setDataCount] = useState(252);
   const fetchAi = useServerFn(fetchSingleAiAnalysis);
+  const fetchTopAi = useServerFn(fetchTopAiAnalysis);
+
+  const { data: topAiData, isLoading: topLoading } = useQuery({
+    queryKey: ["ai-top-analysis"],
+    queryFn: async () => {
+      try { return await fetchTopAi(); } catch { return []; }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const { data: aiData, isLoading } = useQuery({
-    queryKey: ["ai-analysis-full", selectedSymbol],
+    queryKey: ["ai-analysis-full", selectedSymbol, dataCount],
     queryFn: async () => {
-      try { return await fetchAi({ data: { symbol: selectedSymbol } }); } catch { return null; }
+      try { return await fetchAi({ data: { symbol: selectedSymbol, dataCount } }); } catch { return null; }
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -43,18 +53,74 @@ function AIEnginePage() {
       />
 
       <div className="flex flex-col gap-6">
-        {/* HİSSE SEÇİMİ */}
-        <div className="bg-card border border-border p-5 rounded-xl">
-          <label className="text-sm font-semibold mb-2 block text-muted-foreground">Analiz Edilecek Hisse / Fon Seçin:</label>
-          <select 
-            className="w-full md:w-1/3 bg-secondary border border-border rounded-lg px-4 py-3 text-lg font-bold focus:outline-none focus:border-primary/60 transition-colors"
-            value={selectedSymbol}
-            onChange={(e) => setSelectedSymbol(e.target.value)}
-          >
-            {popularStocks.map(s => (
-              <option key={s.symbol} value={s.symbol}>{s.symbol} - {s.name}</option>
-            ))}
-          </select>
+        
+        {/* TOP AI TABLE */}
+        <div className="bg-card border border-border p-5 rounded-xl shadow-sm">
+          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-primary" /> AI Sinyal Fırsat Tablosu
+          </h2>
+          {topLoading ? (
+             <div className="text-muted-foreground animate-pulse text-sm">Yapay zeka piyasayı tarıyor... (İlk açılışta 10-15 saniye sürebilir)</div>
+          ) : (
+             <div className="overflow-x-auto">
+               <table className="w-full text-left text-sm">
+                 <thead>
+                   <tr className="border-b border-border text-muted-foreground">
+                     <th className="pb-3 pr-4 font-semibold">Hisse</th>
+                     <th className="pb-3 pr-4 font-semibold">AI Kararı</th>
+                     <th className="pb-3 pr-4 font-semibold">Güven Skoru</th>
+                     <th className="pb-3 pr-4 font-semibold text-right">Fiyat</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   {topAiData?.map((item: any) => (
+                     <tr key={item.symbol} className="border-b border-border/50 hover:bg-secondary/50 cursor-pointer transition-colors" onClick={() => setSelectedSymbol(item.symbol)}>
+                       <td className="py-3 pr-4 font-bold">{item.symbol}</td>
+                       <td className="py-3 pr-4 font-bold">
+                         <span className={`px-2 py-1 rounded text-xs ${item.analysis.decision === 'AL' ? 'bg-[color:var(--success)]/10 text-[color:var(--success)]' : item.analysis.decision === 'SAT' ? 'bg-destructive/10 text-destructive' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                           {item.analysis.decision}
+                         </span>
+                       </td>
+                       <td className="py-3 pr-4">%{item.analysis.confidenceScore.toFixed(0)}</td>
+                       <td className="py-3 pr-4 text-right">{item.analysis.currentPrice.toFixed(2)} ₺</td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+             </div>
+          )}
+        </div>
+
+        {/* HİSSE SEÇİMİ VE ZAMAN DİLİMİ */}
+        <div className="bg-card border border-border p-5 rounded-xl flex flex-col md:flex-row gap-6 md:items-end">
+          <div className="flex-1">
+            <label className="text-sm font-semibold mb-2 block text-muted-foreground">Analiz Edilecek Hisse / Fon Seçin:</label>
+            <select 
+              className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-lg font-bold focus:outline-none focus:border-primary/60 transition-colors cursor-pointer"
+              value={selectedSymbol}
+              onChange={(e) => setSelectedSymbol(e.target.value)}
+            >
+              {popularStocks.map(s => (
+                <option key={s.symbol} value={s.symbol}>{s.symbol} - {s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="text-sm font-semibold mb-2 block text-muted-foreground flex justify-between">
+              <span>Tarihsel Veri Limiti (Adet/Gün):</span>
+              <span className="text-primary">{dataCount} Gün</span>
+            </label>
+            <input 
+              type="range" 
+              min="30" 
+              max="1000" 
+              step="10" 
+              value={dataCount} 
+              onChange={(e) => setDataCount(parseInt(e.target.value))}
+              className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+            />
+            <div className="text-xs text-muted-foreground mt-2">Alttaki süreç hesapları ve model eğitimleri bu süreye göre yapılır.</div>
+          </div>
         </div>
 
         {/* ANALİZ SONUÇLARI */}
@@ -75,7 +141,7 @@ function AIEnginePage() {
               <div className={`rounded-xl p-6 flex flex-col items-center justify-center text-center border shadow-lg ${
                 aiData.analysis.decision === "AL" ? "bg-[color:var(--success)]/10 border-[color:var(--success)]/30 text-[color:var(--success)] shadow-[color:var(--success)]/10" :
                 aiData.analysis.decision === "SAT" ? "bg-destructive/10 border-destructive/30 text-destructive shadow-destructive/10" :
-                "bg-muted/50 border-border text-foreground shadow-black/5"
+                "bg-yellow-500/10 border-yellow-500/30 text-yellow-500 shadow-yellow-500/10"
               }`}>
                 <div className="text-sm font-bold tracking-widest uppercase mb-2 opacity-80">Genel Motor Kararı</div>
                 <div className="text-5xl font-black flex items-center gap-3">

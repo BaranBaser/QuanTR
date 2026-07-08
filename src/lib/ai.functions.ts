@@ -499,13 +499,16 @@ import { runAIEngine } from "./ml.engine";
 // Fetch history and run ML engine for a single stock
 export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
   .validator((input: unknown) => {
-    const obj = input as { symbol?: string };
-    return { symbol: (obj?.symbol || "THYAO").toUpperCase() };
+    const obj = input as { symbol?: string; dataCount?: number };
+    return { 
+      symbol: (obj?.symbol || "THYAO").toUpperCase(),
+      dataCount: obj?.dataCount || 252
+    };
   })
   .handler(async ({ data }) => {
     try {
-      // Fetch 1y data to ensure we have enough points for backtesting (100+ days)
-      const result = await yfFetch(`${data.symbol}.IS`, "1y");
+      // Fetch maximum available data (e.g. 5y) to ensure we can slice up to dataCount (max ~1250 days)
+      const result = await yfFetch(`${data.symbol}.IS`, "5y");
       if (!result?.timestamp || !result?.indicators?.quote?.[0]) return null;
       
       const quotes = result.indicators.quote[0];
@@ -516,7 +519,7 @@ export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
 
       if (history.length < 30) return null;
       
-      const analysis = await runAIEngine(history, data.symbol);
+      const analysis = await runAIEngine(history, data.symbol, data.dataCount);
       return { symbol: data.symbol, analysis };
     } catch {
       return null;
@@ -536,7 +539,7 @@ export const fetchTopAiAnalysis = createServerFn({ method: "GET" })
       const batch = topSymbols.slice(i, i + 3);
       const batchRes = await Promise.allSettled(
         batch.map(async (sym) => {
-          const result = await yfFetch(`${sym}.IS`, "1y");
+          const result = await yfFetch(`${sym}.IS`, "5y");
           if (!result?.timestamp || !result?.indicators?.quote?.[0]) return null;
           const quotes = result.indicators.quote[0];
           const history = result.timestamp.map((ts: number, idx: number) => ({
@@ -545,7 +548,7 @@ export const fetchTopAiAnalysis = createServerFn({ method: "GET" })
           })).filter((h: any) => h.close != null);
 
           if (history.length < 30) return null;
-          const analysis = await runAIEngine(history, sym);
+          const analysis = await runAIEngine(history, sym, 252); // Default to 1 year for top list
           return { symbol: sym, analysis };
         })
       );

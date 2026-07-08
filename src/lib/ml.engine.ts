@@ -21,7 +21,7 @@ export interface HorizonPrediction {
   models: ModelPrediction[];
 }
 
-export type MLModelName = "LinearRegression" | "MomentumExtrapolation" | "MeanReversion" | "EMA_Projection" | "XGBoost" | "CatBoost" | "LSTM" | "Transformer";
+export type MLModelName = "LinearRegression" | "MomentumExtrapolation" | "MeanReversion" | "EMA_Projection" | "XGBoost" | "CatBoost" | "RandomForest" | "GradientBoosting" | "SVR" | "LSTM" | "Transformer";
 
 export interface EngineResult {
   decision: "AL" | "SAT" | "BEKLE";
@@ -164,13 +164,13 @@ async function calculateEnsemblePrediction(closes: number[], horizon: number, py
   // Include Python Models if available
   if (pythonData && pythonData[horizon.toString()]) {
     const pData = pythonData[horizon.toString()];
-    const pyModels: MLModelName[] = ["XGBoost", "CatBoost", "LSTM", "Transformer"];
+    const pyModels: MLModelName[] = ["XGBoost", "CatBoost", "RandomForest", "GradientBoosting", "SVR", "LSTM", "Transformer"];
     
     for (const pm of pyModels) {
       if (pData[pm]) {
         // Python API doesn't provide per-model RMSE directly in this quick setup, 
         // we'll assign them a highly competitive dynamic RMSE (between 1-3%) since they are ML
-        const fakeRmse = pm === "LSTM" || pm === "Transformer" ? 1.5 : 2.0; 
+        const fakeRmse = pm === "LSTM" || pm === "Transformer" ? 1.5 : pm === "RandomForest" ? 1.8 : 2.0; 
         const inverseRmse = 1 / fakeRmse;
         totalInverseRmse += inverseRmse;
         
@@ -222,12 +222,13 @@ async function calculateEnsemblePrediction(closes: number[], horizon: number, py
 }
 
 // Ana AI Motoru Çalıştırıcısı
-export async function runAIEngine(history: { close: number; volume: number }[], symbol: string): Promise<EngineResult> {
-  if (history.length < 30) {
+export async function runAIEngine(history: { close: number; volume: number }[], symbol: string, dataCount: number = 252): Promise<EngineResult> {
+  const slicedHistory = history.slice(-dataCount);
+  if (slicedHistory.length < 30) {
     throw new Error("Analiz için en az 30 günlük geçmiş veri gereklidir.");
   }
   
-  const closes = history.map(h => h.close);
+  const closes = slicedHistory.map(h => h.close);
   const currentPrice = closes[closes.length - 1];
 
   // Try fetching from Python Backend
@@ -239,7 +240,7 @@ export async function runAIEngine(history: { close: number; volume: number }[], 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         symbol: symbol,
-        prices: closes.slice(-252), // max 1 year
+        prices: closes,
         horizons: [1, 5, 20, 60, 120]
       }),
       signal: AbortSignal.timeout(6000)
