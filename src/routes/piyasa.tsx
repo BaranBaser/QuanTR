@@ -2,9 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell, PageHeader, Sparkline, genLine } from "@/components/AppShell";
 import { stocks, SECTOR_MAP } from "@/lib/market-data";
 import { useServerFn } from "@tanstack/react-start";
-import { fetchBistData } from "@/lib/ai.functions";
+import { fetchBistData, fetchStockHistory } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, RefreshCw, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/piyasa")({ component: PiyasaPage });
@@ -15,9 +16,10 @@ function PiyasaPage() {
   const [tab, setTab] = useState<"all" | "gainers" | "losers" | "volume">("all");
   const [search, setSearch] = useState("");
   const [sectorFilter, setSectorFilter] = useState("Tümü");
-  const [sortKey, setSortKey] = useState<SortKey>("symbol");
+  const [sortKey, setSortKey] = useState<SortKey | null>("symbol");
   const [sortAsc, setSortAsc] = useState(true);
   const fetchBist = useServerFn(fetchBistData);
+  const fetchHistory = useServerFn(fetchStockHistory);
 
   const { data: liveData = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ["bist-piyasa"],
@@ -28,6 +30,17 @@ function PiyasaPage() {
     refetchInterval: 120_000,
     throwOnError: false,
   });
+
+  const { data: indexHistory = [] } = useQuery({
+    queryKey: ["index-history", "XU100.IS", "1mo"],
+    queryFn: async () => {
+      try { const r = await fetchHistory({ data: { symbol: "XU100.IS", range: "1mo" } }); return r ?? []; } catch { return []; }
+    },
+    staleTime: 300_000,
+    throwOnError: false,
+  });
+  
+  const indexCloses = indexHistory.map(h => h.close).filter(Boolean);
 
   const displayData = liveData.length > 0
     ? liveData.map((d) => ({
@@ -61,27 +74,34 @@ function PiyasaPage() {
     if (tab === "losers") arr = arr.filter((s) => s.changePercent < 0);
 
     // Sıralama
-    arr.sort((a, b) => {
-      let av: number | string, bv: number | string;
-      switch (sortKey) {
-        case "symbol": av = a.symbol; bv = b.symbol; return sortAsc ? av.localeCompare(bv as string) : (bv as string).localeCompare(av as string);
-        case "sector": av = a.sector; bv = b.sector; return sortAsc ? av.localeCompare(bv as string) : (bv as string).localeCompare(av as string);
-        case "price": av = a.price; bv = b.price; break;
-        case "changePercent": av = a.changePercent; bv = b.changePercent; break;
-        case "volume": av = a.volume; bv = b.volume; break;
-        case "high52": av = a.high52; bv = b.high52; break;
-        case "low52": av = a.low52; bv = b.low52; break;
-        default: return 0;
-      }
-      return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
-    });
+    if (sortKey) {
+      arr.sort((a, b) => {
+        let av: number | string, bv: number | string;
+        switch (sortKey) {
+          case "symbol": av = a.symbol; bv = b.symbol; return sortAsc ? av.localeCompare(bv as string) : (bv as string).localeCompare(av as string);
+          case "sector": av = a.sector; bv = b.sector; return sortAsc ? av.localeCompare(bv as string) : (bv as string).localeCompare(av as string);
+          case "price": av = a.price; bv = b.price; break;
+          case "changePercent": av = a.changePercent; bv = b.changePercent; break;
+          case "volume": av = a.volume; bv = b.volume; break;
+          case "high52": av = a.high52; bv = b.high52; break;
+          case "low52": av = a.low52; bv = b.low52; break;
+          default: return 0;
+        }
+        return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
+      });
+    }
 
     return arr;
   }, [tab, search, sectorFilter, sortKey, sortAsc, displayData]);
 
   const handleSort = (key: SortKey) => {
-    if (sortKey === key) setSortAsc(!sortAsc);
-    else { setSortKey(key); setSortAsc(true); }
+    if (sortKey === key) {
+      if (sortAsc) setSortAsc(false);
+      else setSortKey(null);
+    } else {
+      setSortKey(key);
+      setSortAsc(true);
+    }
   };
 
   const SortIcon = ({ k }: { k: SortKey }) => {
@@ -111,21 +131,28 @@ function PiyasaPage() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: "Toplam Hisse", value: displayData.length.toString(), sub: "BIST" },
-          { label: "Yükselen", value: gainers.toString(), sub: "adet", up: true },
-          { label: "Düşen", value: losers.toString(), sub: "adet", up: false },
+          { label: "Yükselen", value: gainers.toString(), sub: "adet", up: true, sparkline: indexCloses },
+          { label: "Düşen", value: losers.toString(), sub: "adet", up: false, sparkline: indexCloses.map(v => -v) },
           { label: "Toplam Hacim", value: `${(totalVol / 1e9).toFixed(1)} Mlr TL`, sub: "günlük" },
           { label: "Ort. Değişim", value: `${avgChange >= 0 ? "+" : ""}${avgChange.toFixed(2)}%`, sub: "ortalama", up: avgChange >= 0 },
         ].map((k) => (
-          <div key={k.label} className="rounded-xl border border-border bg-card p-4">
-            <div className="text-xs text-muted-foreground">{k.label}</div>
-            <div className={`text-2xl font-bold mt-1 ${k.up === true ? "text-[color:var(--success)]" : k.up === false ? "text-destructive" : ""}`}>{k.value}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{k.sub}</div>
+          <div key={k.label} className="relative overflow-hidden rounded-xl border border-border bg-card p-4">
+            <div className="relative z-10">
+              <div className="text-xs text-muted-foreground">{k.label}</div>
+              <div className={`text-2xl font-bold mt-1 ${k.up === true ? "text-[color:var(--success)]" : k.up === false ? "text-destructive" : ""}`}>{k.value}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{k.sub}</div>
+            </div>
+            {k.sparkline && k.sparkline.length > 0 && (
+              <div className="absolute -right-4 -bottom-2 opacity-30 pointer-events-none" style={{ width: '60%', height: '80%' }}>
+                 <Sparkline data={k.sparkline} color={k.up ? "oklch(0.72 0.19 145)" : "oklch(0.65 0.22 25)"} height={60} width={120} fill={false} />
+              </div>
+            )}
           </div>
         ))}
       </div>
 
       {/* Arama ve filtreler */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 mb-6">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
@@ -136,31 +163,46 @@ function PiyasaPage() {
             className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-2.5 text-sm focus:border-primary/60 focus:outline-none"
           />
         </div>
-        <select
-          value={sectorFilter}
-          onChange={(e) => setSectorFilter(e.target.value)}
-          className="bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm min-w-[160px]"
-        >
-          {sectors.map((s) => <option key={s}>{s}</option>)}
-        </select>
-      </div>
-
-      {/* Tab butonları */}
-      <div className="flex items-center gap-1 p-1 bg-secondary/50 rounded-xl w-fit">
-        {[
-          { k: "all", l: `Tümü (${displayData.length})` },
-          { k: "gainers", l: `Yükselen (${gainers})` },
-          { k: "losers", l: `Düşen (${losers})` },
-          { k: "volume", l: "En Yüksek Hacim" },
-        ].map((t) => (
-          <button
-            key={t.k}
-            onClick={() => setTab(t.k as typeof tab)}
-            className={`px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${tab === t.k ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            {t.l}
-          </button>
-        ))}
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="relative flex items-center justify-center w-11 h-11 rounded-lg border border-border bg-secondary hover:border-primary/40 transition-colors">
+              <Filter className="w-5 h-5 text-foreground" />
+              <div className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-md">+</div>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-64 p-4 space-y-4 rounded-xl border border-border bg-card shadow-lg z-50">
+            <div className="space-y-2">
+              <h4 className="font-semibold text-sm">Görünüm</h4>
+              <div className="grid grid-cols-1 gap-1">
+                {[
+                  { k: "all", l: `Tümü (${displayData.length})` },
+                  { k: "gainers", l: `Yükselen (${gainers})` },
+                  { k: "losers", l: `Düşen (${losers})` },
+                  { k: "volume", l: "En Yüksek Hacim" },
+                ].map((t) => (
+                  <button
+                    key={t.k}
+                    onClick={() => setTab(t.k as typeof tab)}
+                    className={`px-3 py-2 rounded-lg text-sm text-left transition-colors ${tab === t.k ? "bg-primary text-primary-foreground font-medium" : "hover:bg-secondary text-muted-foreground"}`}
+                  >
+                    {t.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h4 className="font-semibold text-sm">Sektör Filtresi</h4>
+              <select
+                value={sectorFilter}
+                onChange={(e) => setSectorFilter(e.target.value)}
+                className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/60"
+              >
+                {sectors.map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Tablo */}

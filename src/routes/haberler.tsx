@@ -3,8 +3,9 @@ import { AppShell, PageHeader } from "@/components/AppShell";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchNews } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
-import { Newspaper, ExternalLink, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { Newspaper, ExternalLink, RefreshCw, Search, X } from "lucide-react";
+import { useState, useMemo } from "react";
+import { stocks } from "@/lib/market-data";
 
 export const Route = createFileRoute("/haberler")({ component: NewsPage });
 
@@ -13,29 +14,46 @@ const tags = ["Tümü", "Ekonomi", "BIST", "Döviz", "Emtia", "Global", "Piyasa"
 function NewsPage() {
   const [tag, setTag] = useState("Tümü");
   const [sourceFilter, setSourceFilter] = useState("Tümü");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  
   const fetchNewsFn = useServerFn(fetchNews);
 
   const { data: allNews = [], isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["news"],
+    queryKey: ["news", selectedSymbol],
     queryFn: async () => {
-      try { return await fetchNewsFn({}); } catch { return []; }
+      // Varsayılan olarak en popüler (THYAO) veya seçili hisseyi getirir
+      try { return await fetchNewsFn({ data: { symbol: selectedSymbol || "THYAO" } }); } catch { return []; }
     },
     staleTime: 300_000,
     throwOnError: false,
   });
 
   const sources = ["Tümü", ...Array.from(new Set(allNews.map((n) => n.source)))];
-  const filtered = allNews.filter((n) => {
-    if (tag !== "Tümü" && n.tag !== tag) return false;
-    if (sourceFilter !== "Tümü" && n.source !== sourceFilter) return false;
-    return true;
-  });
+  
+  const searchResults = useMemo(() => {
+    if (!searchQuery) return [];
+    const q = searchQuery.toLowerCase();
+    return stocks.filter(s => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)).slice(0, 10);
+  }, [searchQuery]);
+
+  const filtered = useMemo(() => {
+    let result = allNews.filter((n) => {
+      if (tag !== "Tümü" && n.tag !== tag) return false;
+      if (sourceFilter !== "Tümü" && n.source !== sourceFilter) return false;
+      return true;
+    });
+    // Resimli haberleri ve popüler olanları önceliklendir (Thumbnail olanlar üste)
+    result.sort((a, b) => (b.thumbnail ? 1 : 0) - (a.thumbnail ? 1 : 0));
+    return result;
+  }, [allNews, tag, sourceFilter]);
 
   return (
     <AppShell>
       <PageHeader
         title="Haberler"
-        subtitle="Piyasadan en güncel haberler ve gelişmeler."
+        subtitle={selectedSymbol ? `${selectedSymbol} - İlgili Haberler` : "Piyasadan ve popüler hisselerden en güncel haberler."}
         action={
           <button onClick={() => refetch()} disabled={isFetching} className="bg-secondary border border-border rounded-lg px-4 py-2 text-sm inline-flex items-center gap-2 hover:border-primary/40 disabled:opacity-50">
             <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
@@ -43,6 +61,39 @@ function NewsPage() {
           </button>
         }
       />
+
+      {/* Hisse Arama */}
+      <div className="relative w-full max-w-md mb-6 z-50">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Hisse bazlı haber ara (Bulanık Arama)..."
+          value={searchQuery}
+          onFocus={() => setShowSearch(true)}
+          onBlur={() => setTimeout(() => setShowSearch(false), 200)}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full bg-secondary border border-border rounded-lg pl-10 pr-10 py-2.5 text-sm focus:outline-none focus:border-primary/60"
+        />
+        {selectedSymbol && (
+          <button onClick={() => { setSelectedSymbol(null); setSearchQuery(""); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        {showSearch && searchResults.length > 0 && (
+          <div className="absolute top-full mt-2 left-0 right-0 bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50 max-h-64 overflow-y-auto">
+            {searchResults.map((res) => (
+              <div
+                key={res.symbol}
+                className="flex flex-col px-4 py-2 hover:bg-secondary cursor-pointer border-b border-border last:border-0"
+                onClick={() => { setSelectedSymbol(res.symbol); setSearchQuery(res.symbol); setShowSearch(false); }}
+              >
+                <span className="font-semibold text-sm">{res.symbol}</span>
+                <span className="text-xs text-muted-foreground truncate">{res.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {tags.map((t) => (

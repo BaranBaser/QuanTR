@@ -2,9 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell, PageHeader, Sparkline, genLine } from "@/components/AppShell";
 import { stocks, findStock, SECTOR_MAP } from "@/lib/market-data";
 import { useServerFn } from "@tanstack/react-start";
-import { fetchSingleStock, fetchStockHistory } from "@/lib/ai.functions";
+import { fetchSingleStock, fetchStockHistory, fetchBistData } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, Star, RefreshCw, BarChart3, Activity, Clock, Target, Zap } from "lucide-react";
+import { TrendingUp, TrendingDown, Star, RefreshCw, BarChart3, Activity, Clock, Target, Zap, Search } from "lucide-react";
 import { useWatchlist } from "@/lib/storage";
 import { z } from "zod";
 import { useMemo, useState } from "react";
@@ -90,6 +90,9 @@ function AnalizPage() {
 
   const fetchSingle = useServerFn(fetchSingleStock);
   const fetchHistory = useServerFn(fetchStockHistory);
+  const fetchBist = useServerFn(fetchBistData);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
 
   const { data: liveStock, isLoading: loadingLive } = useQuery({
     queryKey: ["stock-live", selectedSymbol],
@@ -118,6 +121,25 @@ function AnalizPage() {
     staleTime: 300_000,
     throwOnError: false,
   });
+
+  const { data: liveData = [] } = useQuery({
+    queryKey: ["bist-piyasa"],
+    queryFn: async () => {
+      try { return await fetchBist({}); } catch { return []; }
+    },
+    staleTime: 60_000,
+  });
+
+  const popularStocks = useMemo(() => {
+    let source = liveData.length > 0 ? liveData : stocks;
+    return [...source].sort((a, b) => (b.volume || 0) - (a.volume || 0)).slice(0, 15);
+  }, [liveData]);
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery) return [];
+    const q = searchQuery.toLowerCase();
+    return stocks.filter(s => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)).slice(0, 10);
+  }, [searchQuery]);
 
   const stock = liveStock
     ? {
@@ -209,13 +231,43 @@ function AnalizPage() {
         }
       />
 
-      {/* Hızlı seçim */}
-      <div className="flex flex-wrap gap-2">
-        {stocks.slice(0, 15).map((s) => (
-          <Link key={s.symbol} to="/analiz" search={{ symbol: s.symbol }} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${s.symbol === stock.symbol ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border hover:border-primary/40"}`}>
-            {s.symbol}
-          </Link>
-        ))}
+      {/* Hızlı seçim ve Arama */}
+      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-4">
+        <div className="flex flex-wrap gap-2 flex-1">
+          {popularStocks.map((s) => (
+            <Link key={s.symbol} to="/analiz" search={{ symbol: s.symbol }} className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${s.symbol === stock.symbol ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border hover:border-primary/40"}`}>
+              {s.symbol}
+            </Link>
+          ))}
+        </div>
+        <div className="relative w-full lg:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Hisse ara (Bulanık Arama)..."
+            value={searchQuery}
+            onFocus={() => setShowSearch(true)}
+            onBlur={() => setTimeout(() => setShowSearch(false), 200)}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-primary/60"
+          />
+          {showSearch && searchResults.length > 0 && (
+            <div className="absolute top-full mt-2 left-0 right-0 bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50 max-h-64 overflow-y-auto">
+              {searchResults.map((res) => (
+                <Link
+                  key={res.symbol}
+                  to="/analiz"
+                  search={{ symbol: res.symbol }}
+                  className="flex flex-col px-4 py-2 hover:bg-secondary cursor-pointer border-b border-border last:border-0"
+                  onClick={() => { setSearchQuery(""); setShowSearch(false); }}
+                >
+                  <span className="font-semibold text-sm">{res.symbol}</span>
+                  <span className="text-xs text-muted-foreground truncate">{res.name}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
