@@ -516,7 +516,7 @@ export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
 
       if (history.length < 30) return null;
       
-      const analysis = runAIEngine(history);
+      const analysis = await runAIEngine(history, data.symbol);
       return { symbol: data.symbol, analysis };
     } catch {
       return null;
@@ -545,7 +545,8 @@ export const fetchTopAiAnalysis = createServerFn({ method: "GET" })
           })).filter((h: any) => h.close != null);
 
           if (history.length < 30) return null;
-          return { symbol: sym, analysis: runAIEngine(history) };
+          const analysis = await runAIEngine(history, sym);
+          return { symbol: sym, analysis };
         })
       );
       
