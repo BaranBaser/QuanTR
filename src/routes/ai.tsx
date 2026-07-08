@@ -81,7 +81,12 @@ function AIEnginePage() {
                            {item.analysis.decision}
                          </span>
                        </td>
-                       <td className="py-3 pr-4">%{item.analysis.confidenceScore.toFixed(0)}</td>
+                       <td className="py-3 pr-4">
+                         %{item.analysis.confidenceScore.toFixed(0)}
+                         <span className="text-xs text-muted-foreground ml-1">
+                           (Puan: {item.analysis.rawScore?.toFixed(0) || "-"})
+                         </span>
+                       </td>
                        <td className="py-3 pr-4 text-right">{item.analysis.currentPrice.toFixed(2)} ₺</td>
                      </tr>
                    ))}

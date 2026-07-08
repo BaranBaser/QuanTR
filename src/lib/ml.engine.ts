@@ -303,11 +303,12 @@ export async function runAIEngine(history: { close: number; volume: number }[], 
 
   // Karar belirle
   let decision: "AL" | "SAT" | "BEKLE" = "BEKLE";
-  if (score >= 70) decision = "AL";
-  else if (score <= 35) decision = "SAT";
+  if (score >= 60) decision = "AL";
+  else if (score <= 40) decision = "SAT";
 
   // Güvenlik: Volatilite çok yüksekse AL kararını BEKLE yap (Risk yönetimi)
-  if (decision === "AL" && volatility > 10) decision = "BEKLE";
+  // Volatilite eşiğini genişlettik (10'dan 25'e çıkardık) çünkü Türk hisseleri genelde volatildir.
+  if (decision === "AL" && volatility > 25) decision = "BEKLE";
 
   // Nihai güven skoru
   let finalConfidence = Math.max(10, Math.min(99, score));
@@ -319,6 +320,7 @@ export async function runAIEngine(history: { close: number; volume: number }[], 
   return {
     decision,
     confidenceScore: finalConfidence,
+    rawScore: score, // Added rawScore
     currentPrice,
     volatility,
     trend,

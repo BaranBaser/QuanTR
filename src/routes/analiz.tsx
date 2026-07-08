@@ -96,6 +96,7 @@ function AnalizPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [showAiAnalysis, setShowAiAnalysis] = useState(false);
+  const [shareCount, setShareCount] = useState(100);
 
   const { data: liveStock, isLoading: loadingLive } = useQuery({
     queryKey: ["stock-live", selectedSymbol],
@@ -292,9 +293,25 @@ function AnalizPage() {
       {showAiAnalysis && (
         <div className="mb-6 animate-in slide-in-from-top-4 fade-in duration-300">
           <div className="rounded-xl border border-primary/40 bg-card p-6 shadow-lg shadow-primary/5">
-            <div className="flex items-center gap-2 mb-6 border-b border-border pb-4">
-              <Brain className="w-6 h-6 text-primary" />
-              <h2 className="text-xl font-bold">Yapay Zeka Karar Motoru Raporu</h2>
+            <div className="flex items-center justify-between mb-6 border-b border-border pb-4">
+              <div className="flex items-center gap-2">
+                <Brain className="w-6 h-6 text-primary" />
+                <h2 className="text-xl font-bold">Yapay Zeka Karar Motoru Raporu</h2>
+              </div>
+              
+              {/* PORTFÖY ADEDİ GİRİŞİ */}
+              <div className="flex items-center gap-4 bg-secondary/30 px-4 py-2 rounded-lg border border-border">
+                <label className="text-sm font-semibold text-muted-foreground">Portföydeki Adet:</label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="number" 
+                    min="1"
+                    className="w-20 bg-background border border-border rounded px-2 py-1 text-right text-sm font-bold focus:outline-none focus:border-primary/60"
+                    value={shareCount}
+                    onChange={(e) => setShareCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  />
+                </div>
+              </div>
             </div>
             
             {loadingAi ? (
@@ -307,73 +324,116 @@ function AnalizPage() {
                 Yeterli geçmiş veri bulunamadı. Algoritmaların çalışması için en az 30 günlük fiyat geçmişi gereklidir.
               </div>
             ) : (
-              <div className="space-y-6">
-                {/* Genel Karar Kartları */}
+              <div className="space-y-8">
+                
+                {/* ANA KARAR KARTLARI */}
                 <div className="grid md:grid-cols-3 gap-4">
-                  <div className={`rounded-xl p-5 flex flex-col items-center justify-center text-center border ${
-                    aiData.analysis.decision === "AL" ? "bg-[color:var(--success)]/10 border-[color:var(--success)]/30 text-[color:var(--success)]" :
-                    aiData.analysis.decision === "SAT" ? "bg-destructive/10 border-destructive/30 text-destructive" :
-                    "bg-muted/50 border-border text-foreground"
+                  <div className={`rounded-xl p-6 flex flex-col items-center justify-center text-center border shadow-lg ${
+                    aiData.analysis.decision === "AL" ? "bg-[color:var(--success)]/10 border-[color:var(--success)]/30 text-[color:var(--success)] shadow-[color:var(--success)]/10" :
+                    aiData.analysis.decision === "SAT" ? "bg-destructive/10 border-destructive/30 text-destructive shadow-destructive/10" :
+                    "bg-yellow-500/10 border-yellow-500/30 text-yellow-500 shadow-yellow-500/10"
                   }`}>
-                    <div className="text-sm font-semibold mb-1 opacity-80">Nihai Karar</div>
-                    <div className="text-4xl font-black flex items-center gap-2">
-                      {aiData.analysis.decision === "AL" ? <CheckCircle2 className="w-8 h-8" /> : 
-                       aiData.analysis.decision === "SAT" ? <AlertTriangle className="w-8 h-8" /> : 
-                       <AlertCircle className="w-8 h-8" />}
+                    <div className="text-sm font-bold tracking-widest uppercase mb-2 opacity-80">Genel Motor Kararı</div>
+                    <div className="text-5xl font-black flex items-center gap-3">
+                      {aiData.analysis.decision === "AL" ? <CheckCircle2 className="w-10 h-10" /> : 
+                       aiData.analysis.decision === "SAT" ? <AlertTriangle className="w-10 h-10" /> : 
+                       <AlertCircle className="w-10 h-10" />}
                       {aiData.analysis.decision}
                     </div>
                   </div>
 
-                  <div className="rounded-xl p-5 border border-border bg-secondary/20 flex flex-col items-center justify-center text-center">
-                    <div className="text-sm font-semibold mb-2 text-muted-foreground">Sistem Güven Skoru</div>
-                    <div className="w-full bg-secondary h-3 rounded-full max-w-[150px] overflow-hidden mb-2 relative">
+                  <div className="rounded-xl p-6 border border-border bg-card flex flex-col items-center justify-center text-center shadow-md">
+                    <div className="text-sm font-bold tracking-widest uppercase mb-3 text-muted-foreground">Ortak Güven Skoru</div>
+                    <div className="w-full bg-secondary h-4 rounded-full max-w-[200px] overflow-hidden mb-3 relative">
                       <div className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-1000" style={{ width: `${aiData.analysis.confidenceScore}%` }} />
                     </div>
-                    <div className="text-2xl font-bold">%{aiData.analysis.confidenceScore.toFixed(0)}</div>
+                    <div className="text-3xl font-black">%{aiData.analysis.confidenceScore.toFixed(1)}</div>
+                    <div className="text-xs text-muted-foreground mt-2">İç Puanlama: {aiData.analysis.rawScore?.toFixed(1) || "-"}</div>
                   </div>
 
-                  <div className="rounded-xl p-5 border border-border bg-secondary/20 flex flex-col items-center justify-center text-center">
-                    <div className="text-sm font-semibold mb-1 text-muted-foreground">Kısa Vade Trend</div>
-                    <div className={`text-2xl font-bold ${aiData.analysis.trend === "YÜKSELEN" ? "text-[color:var(--success)]" : aiData.analysis.trend === "DÜŞEN" ? "text-destructive" : "text-muted-foreground"}`}>
-                      {aiData.analysis.trend}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">Volatilite: %{aiData.analysis.volatility.toFixed(1)}</div>
+                  <div className="rounded-xl p-6 border border-border bg-card flex flex-col items-center justify-center text-center shadow-md">
+                    <div className="text-sm font-bold tracking-widest uppercase mb-2 text-muted-foreground">Şu Anki Toplam Değer</div>
+                    <div className="text-4xl font-black">{(aiData.analysis.currentPrice * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺</div>
+                    <div className="text-sm text-muted-foreground mt-2">Birim Fiyat: {aiData.analysis.currentPrice.toFixed(2)} ₺ | Volatilite: %{aiData.analysis.volatility.toFixed(2)}</div>
                   </div>
                 </div>
 
-                {/* Tahminler */}
+                {/* ZAMAN DİLİMİ TAHMİNLERİ (Sadece 5, 20, 60, 120 gün) */}
                 <div>
-                  <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Fiyat Beklentileri (Ensemble Model)</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                    {aiData.analysis.predictions.map((p: any) => (
-                      <div key={p.horizonDays} className="p-4 rounded-lg border border-border bg-card">
-                        <div className="text-xs text-muted-foreground font-medium mb-2">{p.horizonDays} Günlük Beklenti</div>
-                        <div className="text-lg font-bold">{p.expectedPrice.toFixed(2)} TL</div>
-                        <div className={`text-xs font-semibold mt-1 ${p.expectedReturnPercent >= 0 ? "text-[color:var(--success)]" : "text-destructive"}`}>
-                          {p.expectedReturnPercent >= 0 ? "+" : ""}{p.expectedReturnPercent.toFixed(2)}%
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-border/50 text-[10px] text-muted-foreground">
-                          Bant: {p.lowerBand.toFixed(2)} - {p.upperBand.toFixed(2)}<br/>
-                          Yanılma Payı: %{p.rmse.toFixed(1)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <h3 className="text-xl font-bold mt-4 mb-4 border-b border-border pb-2 flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-primary" /> Zaman Dilimlerine Göre Makine Öğrenmesi Raporları
+                  </h3>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {aiData.analysis.predictions.filter((p: any) => [5, 20, 60, 120].includes(p.horizonDays)).map((p: any) => {
+                      const label = p.horizonDays === 5 ? "1 Hafta" : p.horizonDays === 20 ? "1 Ay" : p.horizonDays === 60 ? "3 Ay" : "6 Ay";
+                      return (
+                        <div key={p.horizonDays} className="border border-border rounded-xl bg-card overflow-hidden shadow-sm">
+                          <div className="p-4 bg-secondary/30 border-b border-border flex justify-between items-center">
+                            <h3 className="font-bold text-lg flex items-center gap-2">
+                              <Target className="w-5 h-5 text-primary" /> {label} Gelecek Projeksiyonu
+                            </h3>
+                            <div className="text-right">
+                              <div className={`text-lg font-black ${p.expectedReturnPercent >= 0 ? "text-[color:var(--success)]" : "text-destructive"}`}>
+                                {(p.expectedPrice * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺ 
+                                <span className="text-sm ml-2">
+                                  ({p.expectedReturnPercent >= 0 ? "+" : ""}{((p.expectedPrice - aiData.analysis.currentPrice) * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺ Kâr/Zarar)
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="p-4 space-y-4">
+                            <div>
+                              <div className="text-xs font-bold text-muted-foreground uppercase mb-3">Model Hata Payları & Ağırlıklar (Geçmiş Test)</div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {p.models.map((m: any) => (
+                                  <div key={m.model} className="bg-secondary/40 rounded-lg p-3 text-center border border-border/50">
+                                    <div className="text-[10px] font-bold text-muted-foreground truncate mb-1">{m.model.replace("_", " ")}</div>
+                                    <div className="text-sm font-semibold">{(m.prediction * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺</div>
+                                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50 text-[10px]">
+                                      <span className="text-destructive font-medium">Hata: %{m.rmse.toFixed(1)}</span>
+                                      <span className="text-primary font-bold">Ağ: %{(m.weight * 100).toFixed(0)}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
 
-                  {/* AI Grafik */}
-                  <div className="h-[300px] w-full mt-4 p-4 border border-border rounded-xl bg-secondary/10">
-                    <h4 className="text-xs font-bold text-muted-foreground mb-4 text-center">Yapay Zeka Modelleri Gelecek Projeksiyonu</h4>
+                            <div className="bg-background rounded-lg p-4 text-sm border border-border flex justify-between items-center">
+                              <div>
+                                <div className="text-muted-foreground text-xs mb-1">Nihai Ortak Güven (Yanılma Payı)</div>
+                                <div className="font-semibold text-destructive">± %{p.rmse.toFixed(2)}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-muted-foreground text-xs mb-1">Toplam Güvenlik Bandı Değeri</div>
+                                <div className="font-semibold">{(p.lowerBand * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺ - {(p.upperBand * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* BÜYÜK GRAFİK */}
+                <div className="border border-border rounded-xl bg-card p-6 shadow-sm mt-8">
+                  <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-primary" /> Modellerin Zaman Çizelgesindeki Beklentileri
+                  </h3>
+                  <div className="h-[400px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={[
-                        { name: "Şu An", Ensemble: aiData.analysis.currentPrice, AltBant: aiData.analysis.currentPrice, ÜstBant: aiData.analysis.currentPrice, LinearRegression: aiData.analysis.currentPrice, MomentumExtrapolation: aiData.analysis.currentPrice, MeanReversion: aiData.analysis.currentPrice, EMA_Projection: aiData.analysis.currentPrice },
+                        { name: "Şu An", Ensemble: aiData.analysis.currentPrice * shareCount, AltBant: aiData.analysis.currentPrice * shareCount, ÜstBant: aiData.analysis.currentPrice * shareCount, LinearRegression: aiData.analysis.currentPrice * shareCount, MomentumExtrapolation: aiData.analysis.currentPrice * shareCount, MeanReversion: aiData.analysis.currentPrice * shareCount, EMA_Projection: aiData.analysis.currentPrice * shareCount },
                         ...aiData.analysis.predictions.map((p: any) => {
+                          const lbl = p.horizonDays === 1 ? "1 Gün" : p.horizonDays === 5 ? "1 Hafta" : p.horizonDays === 20 ? "1 Ay" : p.horizonDays === 60 ? "3 Ay" : p.horizonDays === 120 ? "6 Ay" : `${p.horizonDays} G`;
                           const obj: any = {
-                            name: `${p.horizonDays}G`,
-                            Ensemble: p.expectedPrice,
-                            AltBant: p.lowerBand,
-                            ÜstBant: p.upperBand,
+                            name: lbl,
+                            Ensemble: p.expectedPrice * shareCount,
+                            AltBant: p.lowerBand * shareCount,
+                            ÜstBant: p.upperBand * shareCount,
                           };
-                          p.models.forEach((m: any) => { obj[m.model] = m.prediction; });
+                          p.models.forEach((m: any) => { obj[m.model] = m.prediction * shareCount; });
                           return obj;
                         })
                       ]}>
@@ -384,39 +444,19 @@ function AnalizPage() {
                           contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
                           itemStyle={{ fontSize: '12px', padding: '2px 0' }}
                         />
-                        <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
+                        <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
                         
-                        <Area type="monotone" dataKey="ÜstBant" fill="currentColor" fillOpacity={0.02} stroke="none" />
+                        <Area type="monotone" dataKey="ÜstBant" fill="currentColor" fillOpacity={0.03} stroke="none" />
                         <Area type="monotone" dataKey="AltBant" fill="var(--background)" fillOpacity={1} stroke="none" />
                         
-                        <Line type="monotone" dataKey="LinearRegression" stroke="oklch(0.6 0.15 200)" strokeWidth={1} strokeDasharray="4 4" dot={false} name="Lineer Reg." />
-                        <Line type="monotone" dataKey="MomentumExtrapolation" stroke="oklch(0.6 0.15 40)" strokeWidth={1} strokeDasharray="4 4" dot={false} name="Momentum" />
-                        <Line type="monotone" dataKey="MeanReversion" stroke="oklch(0.6 0.15 300)" strokeWidth={1} strokeDasharray="4 4" dot={false} name="Mean Reversion" />
-                        <Line type="monotone" dataKey="EMA_Projection" stroke="oklch(0.6 0.15 100)" strokeWidth={1} strokeDasharray="4 4" dot={false} name="EMA Projeksiyonu" />
+                        <Line type="monotone" dataKey="LinearRegression" stroke="oklch(0.6 0.15 200)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Lineer Regresyon" />
+                        <Line type="monotone" dataKey="MomentumExtrapolation" stroke="oklch(0.6 0.15 40)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Momentum" />
+                        <Line type="monotone" dataKey="MeanReversion" stroke="oklch(0.6 0.15 300)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Mean Reversion" />
+                        <Line type="monotone" dataKey="EMA_Projection" stroke="oklch(0.6 0.15 100)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="EMA Projeksiyonu" />
                         
-                        <Line type="monotone" dataKey="Ensemble" stroke="var(--primary)" strokeWidth={3} dot={{ r: 4, fill: "var(--primary)" }} activeDot={{ r: 6 }} name="Nihai Beklenti (Ensemble)" />
+                        <Line type="monotone" dataKey="Ensemble" stroke="var(--primary)" strokeWidth={4} dot={{ r: 6, fill: "var(--primary)" }} activeDot={{ r: 8 }} name="Nihai Ortak Beklenti" />
                       </ComposedChart>
                     </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Modellerin Ağırlıkları */}
-                <div>
-                  <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Arka Plan Modelleri (20 Günlük Tahmin İçin)</h3>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    {aiData.analysis.predictions.find((p: any) => p.horizonDays === 20)?.models.map((m: any) => (
-                      <div key={m.model} className="p-3 rounded-lg bg-secondary/30 text-xs">
-                        <div className="font-semibold mb-1 truncate">{m.model.replace("_", " ")}</div>
-                        <div className="flex justify-between mt-2">
-                          <span className="text-muted-foreground">Tahmin:</span>
-                          <span className="font-medium">{m.prediction.toFixed(2)} TL</span>
-                        </div>
-                        <div className="flex justify-between mt-1">
-                          <span className="text-muted-foreground">Ağırlık (Güven):</span>
-                          <span className="font-medium">{(m.weight * 100).toFixed(1)}%</span>
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </div>
 
