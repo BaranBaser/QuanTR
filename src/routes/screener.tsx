@@ -6,14 +6,26 @@ import { fetchBistData } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
 import { Filter, RefreshCw, TrendingUp, TrendingDown, BarChart3, Target, Activity } from "lucide-react";
 import { useMemo, useState } from "react";
+import { z } from "zod";
 
-export const Route = createFileRoute("/screener")({ component: ScreenerPage });
+const screenerSearchSchema = z.object({
+  preset: z.enum(["hepsi", "düşükFk", "yüksekHacim", "yükselen", "52Hdüşük", "teknoloji", "bankacılık"]).optional(),
+  sector: z.string().optional(),
+  sort: z.enum(["changePercent", "volume", "price", "pe"]).optional(),
+});
+
+export const Route = createFileRoute("/screener")({
+  validateSearch: screenerSearchSchema,
+  component: ScreenerPage,
+});
 
 type FilterPreset = "hepsi" | "düşükFk" | "yüksekHacim" | "yükselen" | "52Hdüşük" | "teknoloji" | "bankacılık";
 
 function ScreenerPage() {
-  const [preset, setPreset] = useState<FilterPreset>("hepsi");
-  const [sector, setSector] = useState("Tümü");
+  const { preset: urlPreset, sector: urlSector, sort: urlSort } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [preset, setPresetState] = useState<FilterPreset>((urlPreset as FilterPreset) || "hepsi");
+  const [sector, setSectorState] = useState(urlSector || "Tümü");
   const [minChange, setMinChange] = useState(-10);
   const [maxChange, setMaxChange] = useState(10);
   const [maxPE, setMaxPE] = useState(30);
@@ -25,7 +37,16 @@ function ScreenerPage() {
   const [onlyLosers, setOnlyLosers] = useState(false);
   const [near52Low, setNear52Low] = useState(false);
   const [near52High, setNear52High] = useState(false);
-  const [sortBy, setSortBy] = useState<"changePercent" | "volume" | "price" | "pe">("changePercent");
+  const [sortBy, setSortBy] = useState<"changePercent" | "volume" | "price" | "pe">((urlSort as any) || "changePercent");
+
+  const setPreset = (p: FilterPreset) => {
+    setPresetState(p);
+    navigate({ search: { preset: p === "hepsi" ? undefined : p, sector: sector === "Tümü" ? undefined : sector, sort: sortBy === "changePercent" ? undefined : sortBy }, replace: true });
+  };
+  const setSector = (s: string) => {
+    setSectorState(s);
+    navigate({ search: { preset: preset === "hepsi" ? undefined : preset, sector: s === "Tümü" ? undefined : s, sort: sortBy === "changePercent" ? undefined : sortBy }, replace: true });
+  };
   const fetchBist = useServerFn(fetchBistData);
 
   const { data: liveData = [], isLoading, refetch, isFetching } = useQuery({

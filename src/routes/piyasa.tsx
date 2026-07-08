@@ -4,7 +4,7 @@ import { stocks, SECTOR_MAP } from "@/lib/market-data";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchBistData, fetchStockHistory } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, RefreshCw, BarChart3, Activity, Zap, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, BarChart3, Activity, Zap, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, AlertCircle } from "lucide-react";
 import type { StockData } from "@/lib/ai.functions";
 import { AiAnalysisTable } from "@/components/AiAnalysisTable";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -23,7 +23,7 @@ function PiyasaPage() {
   const fetchBist = useServerFn(fetchBistData);
   const fetchHistory = useServerFn(fetchStockHistory);
 
-  const { data: liveData = [], isLoading, refetch, isFetching } = useQuery({
+  const { data: liveData = [], isLoading, refetch, isFetching, isError } = useQuery({
     queryKey: ["bist-piyasa"],
     queryFn: async () => {
       try { return await fetchBist({}); } catch { return []; }
@@ -212,6 +212,17 @@ function PiyasaPage() {
       {isLoading && (
         <div className="rounded-xl border border-border bg-card p-8 text-center">
           <div className="animate-pulse text-muted-foreground">Canlı veriler yükleniyor... (48 hisse)</div>
+        </div>
+      )}
+
+      {isError && !isLoading && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
+          <AlertCircle className="w-8 h-8 mx-auto mb-2 text-destructive" />
+          <div className="text-sm font-semibold text-destructive">Veri yüklenemedi</div>
+          <p className="text-xs text-muted-foreground mt-1">Yahoo Finance API'sine erişilemiyor. Lütfen daha sonra tekrar deneyin.</p>
+          <button onClick={() => refetch()} className="mt-3 text-xs bg-secondary border border-border rounded-lg px-3 py-1.5 hover:border-primary/40 inline-flex items-center gap-1.5">
+            <RefreshCw className="w-3 h-3" /> Tekrar Dene
+          </button>
         </div>
       )}
 

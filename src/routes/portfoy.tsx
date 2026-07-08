@@ -4,7 +4,7 @@ import { usePortfolio } from "@/lib/storage";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchSingleStock } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
-import { Trash2, Plus, RefreshCw } from "lucide-react";
+import { Trash2, Plus, RefreshCw, Download } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export const Route = createFileRoute("/portfoy")({ component: PortfoyPage });
@@ -48,6 +48,21 @@ function PortfoyPage() {
   const totals = rows.reduce((acc, r) => ({ value: acc.value + r.value, cost: acc.cost + r.cost, pl: acc.pl + r.pl }), { value: 0, cost: 0, pl: 0 });
   const totalPct = totals.cost > 0 ? (totals.pl / totals.cost) * 100 : 0;
 
+  const exportCsv = () => {
+    const header = "Hisse,Adet,Ort. Maliyet,Güncel Fiyat,Değer,K/Z,K/Z %\n";
+    const rows_csv = rows.map(r =>
+      `${r.symbol},${r.lots},${r.avgPrice.toFixed(2)},${r.price.toFixed(2)},${r.value.toFixed(0)},${r.pl.toFixed(0)},${r.plPct.toFixed(2)}`
+    ).join("\n");
+    const total = `\nToplam,,,,${totals.value.toFixed(0)},${totals.pl.toFixed(0)},${totalPct.toFixed(2)}`;
+    const blob = new Blob([header + rows_csv + total], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `portfoy-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const lots = Number(form.lots), avg = Number(form.avgPrice);
@@ -58,7 +73,17 @@ function PortfoyPage() {
 
   return (
     <AppShell>
-      <PageHeader title="Portföyüm" subtitle="Pozisyonlarınızı takip edin, kâr/zarar analizi yapın." />
+      <PageHeader
+        title="Portföyüm"
+        subtitle="Pozisyonlarınızı takip edin, kâr/zarar analizi yapın."
+        action={
+          rows.length > 0 ? (
+            <button onClick={exportCsv} className="bg-secondary border border-border rounded-lg px-4 py-2 text-sm inline-flex items-center gap-2 hover:border-primary/40">
+              <Download className="w-4 h-4" /> CSV İndir
+            </button>
+          ) : undefined
+        }
+      />
 
       <div className="grid md:grid-cols-4 gap-4">
         <div className="rounded-xl border border-border bg-card p-4"><div className="text-xs text-muted-foreground">Toplam Değer</div><div className="text-2xl font-bold mt-1">{totals.value.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL</div></div>

@@ -94,9 +94,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button onClick={toggleTheme} className="w-9 h-9 rounded-full hover:bg-secondary flex items-center justify-center text-muted-foreground">
             {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
-          <button className="relative w-9 h-9 rounded-full hover:bg-secondary flex items-center justify-center text-muted-foreground">
+          <Link to="/alarm" className="relative w-9 h-9 rounded-full hover:bg-secondary flex items-center justify-center text-muted-foreground">
             <Bell className="w-4 h-4" />
-          </button>
+          </Link>
         </div>
       </header>
 

@@ -4,8 +4,8 @@ import { useAlarms } from "@/lib/storage";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchSingleStock } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, BellOff, Trash2, Plus, TrendingUp, TrendingDown } from "lucide-react";
-import { useState } from "react";
+import { Bell, BellOff, Trash2, Plus, TrendingUp, TrendingDown, BellRing } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/alarm")({ component: AlarmPage });
 
@@ -13,6 +13,25 @@ function AlarmPage() {
   const { alarms, add, remove, toggle } = useAlarms();
   const [form, setForm] = useState({ symbol: "", type: "above" as "above" | "below", targetPrice: "" });
   const fetchSingle = useServerFn(fetchSingleStock);
+  const [notifPermission, setNotifPermission] = useState<typeof Notification.permission>("default");
+
+  useEffect(() => {
+    if (typeof Notification !== "undefined") {
+      setNotifPermission(Notification.permission);
+    }
+  }, []);
+
+  const requestNotification = async () => {
+    if (typeof Notification === "undefined") return;
+    const result = await Notification.requestPermission();
+    setNotifPermission(result);
+  };
+
+  const sendNotification = (title: string, body: string) => {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification(title, { body, icon: "/favicon.ico" });
+    }
+  };
 
   const { data: livePrices = {} } = useQuery({
     queryKey: ["alarm-prices", alarms.map((a) => a.symbol).join(",")],
@@ -36,6 +55,22 @@ function AlarmPage() {
     throwOnError: false,
   });
 
+  // Alarm tetikleme kontrolü ve bildirim gönderimi
+  useEffect(() => {
+    if (!livePrices || Object.keys(livePrices).length === 0) return;
+    for (const alarm of alarms.filter((a) => a.active)) {
+      const price = livePrices[alarm.symbol];
+      if (!price) continue;
+      const triggered = alarm.type === "above" ? price >= alarm.targetPrice : price <= alarm.targetPrice;
+      if (triggered) {
+        sendNotification(
+          `stockbear Alarm: ${alarm.symbol}`,
+          `${alarm.symbol} fiyatı ${price.toFixed(2)} ₺ — Hedef: ${alarm.type === "above" ? "Üzeri" : "Altı"} ${alarm.targetPrice.toFixed(2)} ₺`
+        );
+      }
+    }
+  }, [livePrices, alarms]);
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const price = Number(form.targetPrice);
@@ -52,6 +87,13 @@ function AlarmPage() {
       <PageHeader
         title="Fiyat Alarmları"
         subtitle="Hisse fiyatlarını izleyin, hedef fiyatlara ulaştığında haberdar olun."
+        action={
+          typeof Notification !== "undefined" && notifPermission !== "granted" ? (
+            <button onClick={requestNotification} className="bg-secondary border border-border rounded-lg px-4 py-2 text-sm inline-flex items-center gap-2 hover:border-primary/40">
+              <BellRing className="w-4 h-4" /> Bildirimlere İzin Ver
+            </button>
+          ) : undefined
+        }
       />
 
       <form onSubmit={submit} className="rounded-xl border border-border bg-card p-4 flex flex-wrap gap-3 items-end">

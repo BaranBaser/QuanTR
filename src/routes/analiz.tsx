@@ -4,83 +4,17 @@ import { stocks, findStock, SECTOR_MAP } from "@/lib/market-data";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchSingleStock, fetchStockHistory, fetchBistData, fetchSingleAiAnalysis } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, Star, RefreshCw, BarChart3, Activity, Clock, Target, Zap, Search, Brain, CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Area, AreaChart, ComposedChart } from "recharts";
+import { TrendingUp, TrendingDown, Star, RefreshCw, BarChart3, Activity, Clock, Target, Zap, Search, Brain } from "lucide-react";
 import { useWatchlist } from "@/lib/storage";
 import { z } from "zod";
 import { useMemo, useState } from "react";
+import { calcRSI, calcSMA, calcEMA, calcBollinger, calcMACD, findSupportResistance } from "@/lib/ml.engine";
+import { AiAnalysisResult } from "@/components/AiAnalysisResult";
 
 export const Route = createFileRoute("/analiz")({
   validateSearch: z.object({ symbol: z.string().optional() }),
   component: AnalizPage,
 });
-
-// Teknik hesaplama yardımcıları
-function calcRSI(closes: number[], period = 14): number {
-  if (closes.length < period + 1) return 50;
-  let gains = 0, losses = 0;
-  for (let i = closes.length - period; i < closes.length; i++) {
-    const diff = closes[i] - closes[i - 1];
-    if (diff > 0) gains += diff; else losses -= diff;
-  }
-  if (losses === 0) return 100;
-  const rs = gains / losses;
-  return 100 - (100 / (1 + rs));
-}
-
-function calcSMA(closes: number[], period: number): number {
-  if (closes.length < period) return closes[closes.length - 1] || 0;
-  const slice = closes.slice(-period);
-  return slice.reduce((a, b) => a + b, 0) / period;
-}
-
-function calcEMA(closes: number[], period: number): number {
-  if (closes.length < period) return closes[closes.length - 1] || 0;
-  const k = 2 / (period + 1);
-  let ema = closes.slice(0, period).reduce((a, b) => a + b, 0) / period;
-  for (let i = period; i < closes.length; i++) {
-    ema = closes[i] * k + ema * (1 - k);
-  }
-  return ema;
-}
-
-function calcMACD(closes: number[]): { macd: number; signal: number; hist: number } {
-  const ema12 = calcEMA(closes, 12);
-  const ema26 = calcEMA(closes, 26);
-  const macd = ema12 - ema26;
-  // Basitleştirilmiş sinyal
-  const recentCloses = closes.slice(-9);
-  const signal = recentCloses.length > 0 ? calcEMA(recentCloses, 9) : macd;
-  return { macd, signal, hist: macd - signal };
-}
-
-function calcBollinger(closes: number[], period = 20): { upper: number; middle: number; lower: number } {
-  const middle = calcSMA(closes, period);
-  if (closes.length < period) return { upper: middle * 1.02, middle, lower: middle * 0.98 };
-  const slice = closes.slice(-period);
-  const variance = slice.reduce((acc, val) => acc + Math.pow(val - middle, 2), 0) / period;
-  const std = Math.sqrt(variance);
-  return { upper: middle + 2 * std, middle, lower: middle - 2 * std };
-}
-
-function findSupportResistance(closes: number[]): { supports: number[]; resistances: number[] } {
-  if (closes.length < 10) return { supports: [], resistances: [] };
-  const recent = closes.slice(-30);
-  const min = Math.min(...recent);
-  const max = Math.max(...recent);
-  const range = max - min;
-  const supports = [
-    min,
-    min + range * 0.2,
-    min + range * 0.382,
-  ];
-  const resistances = [
-    max,
-    max - range * 0.2,
-    max - range * 0.382,
-  ];
-  return { supports: supports.filter((s) => s < closes[closes.length - 1]), resistances: resistances.filter((r) => r > closes[closes.length - 1]) };
-}
 
 function AnalizPage() {
   const { symbol } = Route.useSearch();
@@ -314,154 +248,11 @@ function AnalizPage() {
               </div>
             </div>
             
-            {loadingAi ? (
-              <div className="py-12 flex flex-col items-center justify-center text-muted-foreground animate-pulse">
-                <Brain className="w-8 h-8 mb-4 opacity-50" />
-                <div>Matematiksel modeller ve indikatörler hesaplanıyor...</div>
-              </div>
-            ) : !aiData?.analysis ? (
-              <div className="py-12 text-center text-muted-foreground">
-                Yeterli geçmiş veri bulunamadı. Algoritmaların çalışması için en az 30 günlük fiyat geçmişi gereklidir.
-              </div>
-            ) : (
-              <div className="space-y-8">
-                
-                {/* ANA KARAR KARTLARI */}
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className={`rounded-xl p-6 flex flex-col items-center justify-center text-center border shadow-lg ${
-                    aiData.analysis.decision === "AL" ? "bg-[color:var(--success)]/10 border-[color:var(--success)]/30 text-[color:var(--success)] shadow-[color:var(--success)]/10" :
-                    aiData.analysis.decision === "SAT" ? "bg-destructive/10 border-destructive/30 text-destructive shadow-destructive/10" :
-                    "bg-yellow-500/10 border-yellow-500/30 text-yellow-500 shadow-yellow-500/10"
-                  }`}>
-                    <div className="text-sm font-bold tracking-widest uppercase mb-2 opacity-80">Genel Motor Kararı</div>
-                    <div className="text-5xl font-black flex items-center gap-3">
-                      {aiData.analysis.decision === "AL" ? <CheckCircle2 className="w-10 h-10" /> : 
-                       aiData.analysis.decision === "SAT" ? <AlertTriangle className="w-10 h-10" /> : 
-                       <AlertCircle className="w-10 h-10" />}
-                      {aiData.analysis.decision}
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl p-6 border border-border bg-card flex flex-col items-center justify-center text-center shadow-md">
-                    <div className="text-sm font-bold tracking-widest uppercase mb-3 text-muted-foreground">Ortak Güven Skoru</div>
-                    <div className="w-full bg-secondary h-4 rounded-full max-w-[200px] overflow-hidden mb-3 relative">
-                      <div className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-1000" style={{ width: `${aiData.analysis.confidenceScore}%` }} />
-                    </div>
-                    <div className="text-3xl font-black">%{aiData.analysis.confidenceScore.toFixed(1)}</div>
-                    <div className="text-xs text-muted-foreground mt-2">İç Puanlama: {aiData.analysis.rawScore?.toFixed(1) || "-"}</div>
-                  </div>
-
-                  <div className="rounded-xl p-6 border border-border bg-card flex flex-col items-center justify-center text-center shadow-md">
-                    <div className="text-sm font-bold tracking-widest uppercase mb-2 text-muted-foreground">Şu Anki Toplam Değer</div>
-                    <div className="text-4xl font-black">{(aiData.analysis.currentPrice * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺</div>
-                    <div className="text-sm text-muted-foreground mt-2">Birim Fiyat: {aiData.analysis.currentPrice.toFixed(2)} ₺ | Volatilite: %{aiData.analysis.volatility.toFixed(2)}</div>
-                  </div>
-                </div>
-
-                {/* ZAMAN DİLİMİ TAHMİNLERİ (Sadece 5, 20, 60, 120 gün) */}
-                <div>
-                  <h3 className="text-xl font-bold mt-4 mb-4 border-b border-border pb-2 flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-primary" /> Zaman Dilimlerine Göre Makine Öğrenmesi Raporları
-                  </h3>
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    {aiData.analysis.predictions.filter((p: any) => [5, 20, 60, 120].includes(p.horizonDays)).map((p: any) => {
-                      const label = p.horizonDays === 5 ? "1 Hafta" : p.horizonDays === 20 ? "1 Ay" : p.horizonDays === 60 ? "3 Ay" : "6 Ay";
-                      return (
-                        <div key={p.horizonDays} className="border border-border rounded-xl bg-card overflow-hidden shadow-sm">
-                          <div className="p-4 bg-secondary/30 border-b border-border flex justify-between items-center">
-                            <h3 className="font-bold text-lg flex items-center gap-2">
-                              <Target className="w-5 h-5 text-primary" /> {label} Gelecek Projeksiyonu
-                            </h3>
-                            <div className="text-right">
-                              <div className={`text-lg font-black ${p.expectedReturnPercent >= 0 ? "text-[color:var(--success)]" : "text-destructive"}`}>
-                                {(p.expectedPrice * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺ 
-                                <span className="text-sm ml-2">
-                                  ({p.expectedReturnPercent >= 0 ? "+" : ""}{((p.expectedPrice - aiData.analysis.currentPrice) * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺ Kâr/Zarar)
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="p-4 space-y-4">
-                            <div>
-                              <div className="text-xs font-bold text-muted-foreground uppercase mb-3">Model Hata Payları & Ağırlıklar (Geçmiş Test)</div>
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                {p.models.map((m: any) => (
-                                  <div key={m.model} className="bg-secondary/40 rounded-lg p-3 text-center border border-border/50">
-                                    <div className="text-[10px] font-bold text-muted-foreground truncate mb-1">{m.model.replace("_", " ")}</div>
-                                    <div className="text-sm font-semibold">{(m.prediction * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺</div>
-                                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50 text-[10px]">
-                                      <span className="text-destructive font-medium">Hata: %{m.rmse.toFixed(1)}</span>
-                                      <span className="text-primary font-bold">Ağ: %{(m.weight * 100).toFixed(0)}</span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div className="bg-background rounded-lg p-4 text-sm border border-border flex justify-between items-center">
-                              <div>
-                                <div className="text-muted-foreground text-xs mb-1">Nihai Ortak Güven (Yanılma Payı)</div>
-                                <div className="font-semibold text-destructive">± %{p.rmse.toFixed(2)}</div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-muted-foreground text-xs mb-1">Toplam Güvenlik Bandı Değeri</div>
-                                <div className="font-semibold">{(p.lowerBand * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺ - {(p.upperBand * shareCount).toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₺</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* BÜYÜK GRAFİK */}
-                <div className="border border-border rounded-xl bg-card p-6 shadow-sm mt-8">
-                  <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-primary" /> Modellerin Zaman Çizelgesindeki Beklentileri
-                  </h3>
-                  <div className="h-[400px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart data={[
-                        { name: "Şu An", Ensemble: aiData.analysis.currentPrice * shareCount, AltBant: aiData.analysis.currentPrice * shareCount, ÜstBant: aiData.analysis.currentPrice * shareCount, LinearRegression: aiData.analysis.currentPrice * shareCount, MomentumExtrapolation: aiData.analysis.currentPrice * shareCount, MeanReversion: aiData.analysis.currentPrice * shareCount, EMA_Projection: aiData.analysis.currentPrice * shareCount },
-                        ...aiData.analysis.predictions.map((p: any) => {
-                          const lbl = p.horizonDays === 1 ? "1 Gün" : p.horizonDays === 5 ? "1 Hafta" : p.horizonDays === 20 ? "1 Ay" : p.horizonDays === 60 ? "3 Ay" : p.horizonDays === 120 ? "6 Ay" : `${p.horizonDays} G`;
-                          const obj: any = {
-                            name: lbl,
-                            Ensemble: p.expectedPrice * shareCount,
-                            AltBant: p.lowerBand * shareCount,
-                            ÜstBant: p.upperBand * shareCount,
-                          };
-                          p.models.forEach((m: any) => { obj[m.model] = m.prediction * shareCount; });
-                          return obj;
-                        })
-                      ]}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} vertical={false} />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "currentColor", opacity: 0.5 }} />
-                        <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "currentColor", opacity: 0.5 }} width={40} />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
-                          itemStyle={{ fontSize: '12px', padding: '2px 0' }}
-                        />
-                        <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                        
-                        <Area type="monotone" dataKey="ÜstBant" fill="currentColor" fillOpacity={0.03} stroke="none" />
-                        <Area type="monotone" dataKey="AltBant" fill="var(--background)" fillOpacity={1} stroke="none" />
-                        
-                        <Line type="monotone" dataKey="LinearRegression" stroke="oklch(0.6 0.15 200)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Lineer Regresyon" />
-                        <Line type="monotone" dataKey="MomentumExtrapolation" stroke="oklch(0.6 0.15 40)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Momentum" />
-                        <Line type="monotone" dataKey="MeanReversion" stroke="oklch(0.6 0.15 300)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Mean Reversion" />
-                        <Line type="monotone" dataKey="EMA_Projection" stroke="oklch(0.6 0.15 100)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="EMA Projeksiyonu" />
-                        
-                        <Line type="monotone" dataKey="Ensemble" stroke="var(--primary)" strokeWidth={4} dot={{ r: 6, fill: "var(--primary)" }} activeDot={{ r: 8 }} name="Nihai Ortak Beklenti" />
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-              </div>
-            )}
+            <AiAnalysisResult
+              analysis={aiData?.analysis || null}
+              shareCount={shareCount}
+              isLoading={loadingAi}
+            />
           </div>
         </div>
       )}

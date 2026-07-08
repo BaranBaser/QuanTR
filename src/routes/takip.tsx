@@ -3,7 +3,7 @@ import { AppShell, PageHeader, Sparkline, genLine } from "@/components/AppShell"
 import { stocks, findStock } from "@/lib/market-data";
 import { useWatchlist } from "@/lib/storage";
 import { useServerFn } from "@tanstack/react-start";
-import { fetchSingleStock } from "@/lib/ai.functions";
+import { fetchSingleStock, fetchStockHistory } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
 import { Star, Plus, X } from "lucide-react";
 import { useState } from "react";
@@ -42,6 +42,25 @@ function TakipPage() {
     },
     staleTime: 60_000,
     refetchInterval: 120_000,
+    throwOnError: false,
+  });
+
+  const fetchHistory = useServerFn(fetchStockHistory);
+  const { data: sparklineData = {} } = useQuery({
+    queryKey: ["watchlist-sparklines", list.join(",")],
+    queryFn: async () => {
+      const data: Record<string, number[]> = {};
+      for (const sym of list) {
+        try {
+          const result = await fetchHistory({ data: { symbol: sym, range: "3mo" } });
+          if (result && result.length > 0) {
+            data[sym] = result.map((h: any) => h.close).filter(Boolean);
+          }
+        } catch {}
+      }
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
     throwOnError: false,
   });
 
@@ -102,7 +121,11 @@ function TakipPage() {
               {s.hasLivePrice && <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--success)] inline-block" />}
             </div>
             <div className="mt-3">
-              <Sparkline data={genLine(s.symbol.charCodeAt(0), 30, s.changePercent >= 0 ? "up" : "down")} color={s.changePercent >= 0 ? "oklch(0.72 0.19 145)" : "oklch(0.65 0.22 25)"} height={60} />
+              <Sparkline
+                data={sparklineData[s.symbol] && sparklineData[s.symbol].length > 5 ? sparklineData[s.symbol] : genLine(s.symbol.charCodeAt(0), 30, s.changePercent >= 0 ? "up" : "down")}
+                color={s.changePercent >= 0 ? "oklch(0.72 0.19 145)" : "oklch(0.65 0.22 25)"}
+                height={60}
+              />
             </div>
             <div className="flex justify-between text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
               <span>Hacim: {(s.volume / 1e9).toFixed(1)} Mlr</span>

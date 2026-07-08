@@ -67,6 +67,38 @@ export function calcEMA(closes: number[], period: number): number {
   return ema;
 }
 
+export function calcBollinger(closes: number[], period = 20): { upper: number; middle: number; lower: number } {
+  const middle = calcSMA(closes, period);
+  if (closes.length < period) return { upper: middle * 1.02, middle, lower: middle * 0.98 };
+  const slice = closes.slice(-period);
+  const variance = slice.reduce((acc, val) => acc + Math.pow(val - middle, 2), 0) / period;
+  const std = Math.sqrt(variance);
+  return { upper: middle + 2 * std, middle, lower: middle - 2 * std };
+}
+
+export function findSupportResistance(closes: number[]): { supports: number[]; resistances: number[] } {
+  if (closes.length < 10) return { supports: [], resistances: [] };
+  const recent = closes.slice(-30);
+  const min = Math.min(...recent);
+  const max = Math.max(...recent);
+  const range = max - min;
+  const supports = [min, min + range * 0.2, min + range * 0.382];
+  const resistances = [max, max - range * 0.2, max - range * 0.382];
+  return {
+    supports: supports.filter((s) => s < closes[closes.length - 1]),
+    resistances: resistances.filter((r) => r > closes[closes.length - 1]),
+  };
+}
+
+export function calcMACD(closes: number[]): { macd: number; signal: number; hist: number } {
+  const ema12 = calcEMA(closes, 12);
+  const ema26 = calcEMA(closes, 26);
+  const macd = ema12 - ema26;
+  const recentCloses = closes.slice(-9);
+  const signal = recentCloses.length > 0 ? calcEMA(recentCloses, 9) : macd;
+  return { macd, signal, hist: macd - signal };
+}
+
 // Tahmin Modelleri
 function predictLinearRegression(closes: number[], horizon: number): number {
   const n = closes.length;
@@ -291,6 +323,7 @@ export interface SimpleTechnicalResult {
 }
 
 // Tüm BIST100'e hızlıca uygulanacak hafif teknik tarayıcı motoru
+// runAIEngine ile tutarlı ağırlıklar kullanılır (tutarlı sinyal üretimi için)
 export function runSimpleTechnicalEngine(
   history: { close: number; high?: number; low?: number; volume?: number }[],
   symbol: string
@@ -307,43 +340,39 @@ export function runSimpleTechnicalEngine(
   const macd = ema12 - ema26;
   const macdSignal = calcEMA(closes.slice(-9), 9);
 
+  // Volatilite hesapla (AI engine ile aynı mantık)
+  const slice20 = closes.slice(-20);
+  const mean20 = calcSMA(slice20, 20);
+  const volatility = (Math.sqrt(slice20.reduce((acc, val) => acc + Math.pow(val - mean20, 2), 0) / 20) / mean20) * 100;
+
   const trend = sma20 > sma50 ? "YÜKSELEN" : sma20 < sma50 * 0.95 ? "DÜŞEN" : "YATAY";
 
+  // Başlangıç puanı
   let score = 50;
 
-  // RSI
-  if (rsi < 30) score += 20; // Aşırı satım -> Güçlü AL
-  else if (rsi > 70) score -= 20; // Aşırı alım -> Güçlü SAT
+  // RSI Kuralları (AI engine ile aynı: ±15)
+  if (rsi < 30) score += 15;
+  else if (rsi > 70) score -= 15;
 
-  // MACD
+  // MACD Kuralları (AI engine ile aynı: ±10)
   if (macd > macdSignal) score += 10;
   else score -= 10;
 
-  // Trend
+  // Trend Kuralları (AI engine ile aynı: ±10)
   if (trend === "YÜKSELEN") score += 10;
   else if (trend === "DÜŞEN") score -= 10;
 
-  // Destek / Direnç (Pivot) Analizi (Son günün verisi üzerinden)
-  const lastDay = history[history.length - 1];
-  if (lastDay && lastDay.high && lastDay.low) {
-    const P = (lastDay.high + lastDay.low + lastDay.close) / 3;
-    const R1 = 2 * P - lastDay.low;
-    const S1 = 2 * P - lastDay.high;
-
-    // Fiyat desteğe S1'e çok yakınsa veya altındaysa -> Tepki alımı fırsatı
-    if (currentPrice <= S1 * 1.02) score += 15;
-    // Fiyat dirence R1'e çok yakınsa veya üstündeyse -> Kâr satışı riski
-    else if (currentPrice >= R1 * 0.98) score -= 15;
-  } else {
-    // Eğer high/low yoksa fiyata göre basit sapma
-    if (currentPrice < sma20 * 0.95) score += 10;
-    if (currentPrice > sma20 * 1.05) score -= 10;
-  }
+  // Fiyat-SMA sapması (AI engine'deki destek/direnç yerine, daha stabil)
+  if (currentPrice < sma20 * 0.95) score += 10;
+  else if (currentPrice > sma20 * 1.05) score -= 10;
 
   // Karar
   let decision: "AL" | "SAT" | "BEKLE" = "BEKLE";
-  if (score >= 60) decision = "AL"; // Yüksek hassasiyet için 70 yerine 60
-  else if (score <= 40) decision = "SAT"; // Yüksek hassasiyet için 30 yerine 40
+  if (score >= 60) decision = "AL";
+  else if (score <= 40) decision = "SAT";
+
+  // Güvenlik: Volatilite çok yüksekse AL kararını BEKLE yap (AI engine ile aynı)
+  if (decision === "AL" && volatility > 25) decision = "BEKLE";
 
   return {
     decision,

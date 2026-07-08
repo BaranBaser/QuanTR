@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, PageHeader, Sparkline, genLine } from "@/components/AppShell";
 import { stocks, findStock } from "@/lib/market-data";
 import { Play, RotateCcw, Beaker } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 export const Route = createFileRoute("/simulasyon")({ component: SimPage });
 
@@ -16,14 +16,48 @@ function SimPage() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [symbol, setSymbol] = useState("THYAO");
   const [lots, setLots] = useState(10);
+  const [priceHistory, setPriceHistory] = useState<number[]>([]);
 
   const stock = findStock(symbol);
-  const dayPriceMultiplier = 1 + (Math.sin(day * 0.5) * 0.05);
-  const currentPrice = stock ? stock.price * dayPriceMultiplier : 0;
+  
+  // Random walk price simulation (cumulative daily changes)
+  const dailyChange = useMemo(() => {
+    // Seeded random based on day for consistency
+    const seed = day * 137 + symbol.charCodeAt(0) * 31;
+    const pseudoRandom = () => { const x = Math.sin(seed) * 10000; return x - Math.floor(x); };
+    // Random daily change between -3% and +3% with slight mean reversion
+    return (pseudoRandom() - 0.5) * 0.06;
+  }, [day, symbol]);
+
+  const cumulativeMultiplier = useMemo(() => {
+    let mult = 1;
+    for (let i = 1; i <= day; i++) {
+      const s = i * 137 + symbol.charCodeAt(0) * 31;
+      const r = () => { const x = Math.sin(s) * 10000; return x - Math.floor(x); };
+      mult *= (1 + (r() - 0.5) * 0.06);
+    }
+    return mult;
+  }, [day, symbol]);
+
+  const currentPrice = stock ? stock.price * cumulativeMultiplier : 0;
+
+  // Track price history for sparkline
+  useMemo(() => {
+    const history: number[] = [];
+    let mult = 1;
+    for (let i = 0; i <= day; i++) {
+      history.push((stock?.price || 100) * mult);
+      const s = (i + 1) * 137 + symbol.charCodeAt(0) * 31;
+      const r = () => { const x = Math.sin(s) * 10000; return x - Math.floor(x); };
+      mult *= (1 + (r() - 0.5) * 0.06);
+    }
+    setPriceHistory(history);
+  }, [day, symbol, stock?.price]);
 
   const totalPortfolioValue = Object.entries(portfolio).reduce((sum, [sym, pos]) => {
     const s = findStock(sym); if (!s) return sum;
-    return sum + s.price * dayPriceMultiplier * pos.lots;
+    // Her hisse kendi fiyat geçmişiyle değer kazanır (basitleştirilmiş)
+    return sum + currentPrice * pos.lots;
   }, 0);
   const netWorth = balance + totalPortfolioValue;
   const returnPct = ((netWorth - initialBalance) / initialBalance) * 100;
@@ -75,7 +109,7 @@ function SimPage() {
             </div>
             <button onClick={nextDay} className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium inline-flex items-center gap-2 hover:bg-primary/90"><Play className="w-4 h-4" /> Sonraki Gün</button>
           </div>
-          <Sparkline data={genLine(day * 7, 40, "flat")} color="oklch(0.82 0.17 82)" height={200} width={600} />
+          <Sparkline data={priceHistory.length > 1 ? priceHistory : genLine(day * 7, 40, "flat")} color={currentPrice >= (stock?.price || 100) ? "oklch(0.72 0.19 145)" : "oklch(0.65 0.22 25)"} height={200} width={600} />
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 space-y-4">

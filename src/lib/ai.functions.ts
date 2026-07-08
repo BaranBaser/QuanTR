@@ -1,12 +1,23 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { SECTOR_MAP } from "./market-data";
 
 // ─── Yahoo Finance helpers ──────────────────────────────────────────────────
 
 const YF_BASE = "https://query1.finance.yahoo.com/v8/finance/chart";
 
+// Simple in-memory cache for Yahoo Finance API calls
+const yfCache = new Map<string, { data: unknown; timestamp: number }>();
+const CACHE_TTL = 60_000; // 60 seconds
+
 async function yfFetch(symbol: string, range = "1d", interval = "1d") {
   try {
+    const cacheKey = `${symbol}:${range}:${interval}`;
+    const cached = yfCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data as Record<string, unknown>;
+    }
+
     const url = `${YF_BASE}/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
@@ -17,7 +28,13 @@ async function yfFetch(symbol: string, range = "1d", interval = "1d") {
     clearTimeout(timeout);
     if (!res.ok) return null;
     const json = await res.json();
-    return json.chart?.result?.[0] ?? null;
+    const result = json.chart?.result?.[0] ?? null;
+    
+    if (result) {
+      yfCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    }
+    
+    return result;
   } catch {
     return null;
   }
@@ -126,70 +143,6 @@ function formatYfSymbol(sym: string): string {
   if (GLOBAL_SYMBOLS.includes(sym)) return sym;
   return sym.includes(".") ? sym : `${sym}.IS`;
 }
-
-// Sektör eşleme (genişletilmiş)
-const SECTOR_MAP: Record<string, string> = {
-  // Bankacılık
-  AKBNK: "Bankacılık", GARAN: "Bankacılık", YKBNK: "Bankacılık",
-  HALKB: "Bankacılık", VAKBN: "Bankacılık", ISCTR: "Bankacılık",
-  TSKB: "Bankacılık", QNBFB: "Bankacılık", SKBNK: "Bankacılık",
-  // Havacılık
-  THYAO: "Havacılık", PGSUS: "Havacılık", TAVHL: "Havacılık",
-  // Enerji
-  TUPRS: "Enerji", PETKM: "Enerji", ODAS: "Enerji", AYDEM: "Enerji",
-  AKSEN: "Enerji", ENJSA: "Enerji", ENERY: "Enerji",
-  CWENE: "Enerji", EUPWR: "Enerji", ASTOR: "Enerji",
-  // Holding
-  SAHOL: "Holding", KCHOL: "Holding", DOHOL: "Holding",
-  BRYAT: "Holding", EUREN: "Holding",
-  // Metal
-  EREGL: "Metal", KRDMD: "Metal",
-  // Sanayi
-  SISE: "Sanayi", ARCLK: "Sanayi", ECILC: "Sanayi",
-  BRSAN: "Sanayi", CIMSA: "Sanayi", CVKMD: "Sanayi",
-  // Otomotiv
-  TOASO: "Otomotiv", FROTO: "Otomotiv", TTRAK: "Otomotiv", DOAS: "Otomotiv",
-  // İletişim
-  TCELL: "İletişim", TTKOM: "İletişim",
-  // Savunma
-  ASELS: "Savunma",
-  // Madencilik
-  KOZAA: "Madencilik", KOZAL: "Madencilik", IHEVA: "Madencilik",
-  // Kimya
-  SASA: "Kimya", BRISA: "Kimya", KONTR: "Kimya", HEKTS: "Kimya", AKSA: "Kimya",
-  // Perakende
-  BIMAS: "Perakende", MGROS: "Perakende", SOKM: "Perakende",
-  // GYO
-  EKGYO: "GYO", GLYHO: "GYO", DAPGM: "GYO", PSGYO: "GYO",
-  // İnşaat
-  ISMEN: "İnşaat", ENKAI: "İnşaat", ALARK: "İnşaat",
-  // Tekstil
-  KONKA: "Tekstil", MAVI: "Tekstil", CANTE: "Tekstil",
-  // Lojistik
-  TGSAS: "Lojistik",
-  // İçecek
-  AEFES: "İçecek", CCOLA: "İçecek", BTCIM: "İçecek",
-  // Teknoloji
-  VESTL: "Teknoloji", EKOS: "Teknoloji", FONET: "Teknoloji",
-  // Sigorta
-  ANSGR: "Sigorta", TURSG: "Sigorta",
-  // Spor
-  FENER: "Spor",
-  // Finans
-  DSTKF: "Finans", EFOR: "Finans",
-  // Diğer
-  OTKAR: "Otomotiv", OYAKC: "Enerji", GESAN: "Sanayi",
-  GLRMK: "Kimya", GRSEL: "Sanayi", GRTHO: "Holding",
-  IEYHO: "İçecek", IZENR: "Enerji", KLRHO: "Holding",
-  KTLEV: "Teknoloji", KUYAS: "Enerji", MAGEN: "Madencilik",
-  MIATK: "Enerji", MPARK: "Sağlık", OBAMS: "Holding",
-  ODINE: "Teknoloji", PAHOL: "Holding", PASEU: "Holding",
-  PATEK: "Sanayi", QUAGR: "Holding", RALYH: "Holding",
-  REEDR: "Enerji", SMRTG: "Holding", TABGD: "Holding",
-  TRENJ: "Enerji", TRMET: "Sanayi", ALTNY: "Holding",
-  BALSU: "Holding", BERA: "Holding", BSOKE: "Sanayi",
-  ESEN: "Holding", GENIL: "Holding",
-};
 
 // Toplu veri çekme (batch) — 8'li gruplar halinde (hız için)
 async function fetchBatch(symbols: string[], batchSize = 8): Promise<StockData[]> {
