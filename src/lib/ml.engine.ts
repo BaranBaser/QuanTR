@@ -21,11 +21,10 @@ export interface HorizonPrediction {
   models: ModelPrediction[];
 }
 
-export type MLModelName = "LinearRegression" | "MomentumExtrapolation" | "MeanReversion" | "EMA_Projection" | "XGBoost" | "CatBoost" | "RandomForest" | "GradientBoosting" | "SVR" | "LSTM" | "Transformer";
-
 export interface EngineResult {
   decision: "AL" | "SAT" | "BEKLE";
   confidenceScore: number;
+  rawScore: number;
   currentPrice: number;
   volatility: number;
   trend: "YÜKSELEN" | "DÜŞEN" | "YATAY";
@@ -161,33 +160,6 @@ async function calculateEnsemblePrediction(closes: number[], horizon: number, py
     });
   }
 
-  // Include Python Models if available
-  if (pythonData && pythonData[horizon.toString()]) {
-    const pData = pythonData[horizon.toString()];
-    const pyModels: MLModelName[] = ["XGBoost", "CatBoost", "RandomForest", "GradientBoosting", "SVR", "LSTM", "Transformer"];
-    
-    for (const pm of pyModels) {
-      if (pData[pm]) {
-        // Python API doesn't provide per-model RMSE directly in this quick setup, 
-        // we'll assign them a highly competitive dynamic RMSE (between 1-3%) since they are ML
-        const fakeRmse = pm === "LSTM" || pm === "Transformer" ? 1.5 : pm === "RandomForest" ? 1.8 : 2.0; 
-        const inverseRmse = 1 / fakeRmse;
-        totalInverseRmse += inverseRmse;
-        
-        let pyPred = pData[pm];
-        if (pyPred > currentPrice * 1.5) pyPred = currentPrice * 1.5;
-        if (pyPred < currentPrice * 0.5) pyPred = currentPrice * 0.5;
-
-        evaluatedModels.push({
-          model: pm,
-          prediction: pyPred,
-          weight: inverseRmse,
-          rmse: fakeRmse
-        });
-      }
-    }
-  }
-
   // Ağırlıklı ortalama al
   let finalExpectedPrice = 0;
   let avgRmse = 0;
@@ -231,28 +203,6 @@ export async function runAIEngine(history: { close: number; volume: number }[], 
   const closes = slicedHistory.map(h => h.close);
   const currentPrice = closes[closes.length - 1];
 
-  // Try fetching from Python Backend
-  let pythonData = null;
-  try {
-    const pyApiUrl = process.env.PYTHON_API_URL || "https://stockbear-ml-api.onrender.com";
-    const res = await fetch(`${pyApiUrl}/predict`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        symbol: symbol,
-        prices: closes,
-        horizons: [1, 5, 20, 60, 120]
-      }),
-      signal: AbortSignal.timeout(6000)
-    });
-    if (res.ok) {
-      const data = await res.json();
-      pythonData = data.predictions;
-    }
-  } catch (e) {
-    console.log("Python backend not reachable or timed out. Falling back to local TS models.", e);
-  }
-
   // Temel İndikatörler
   const rsi = calcRSI(closes, 14);
   const sma20 = calcSMA(closes, 20);
@@ -272,7 +222,7 @@ export async function runAIEngine(history: { close: number; volume: number }[], 
 
   // Tahminleri Üret (Gelecek 1, 5, 20, 60, 120 gün)
   const horizons = [1, 5, 20, 60, 120];
-  const predictions = await Promise.all(horizons.map(h => calculateEnsemblePrediction(closes, h, pythonData)));
+  const predictions = await Promise.all(horizons.map(h => calculateEnsemblePrediction(closes, h)));
 
   // Bulanık Mantık Karar Motoru (AL / SAT / BEKLE)
   let score = 50; // Başlangıç nötr
@@ -307,7 +257,6 @@ export async function runAIEngine(history: { close: number; volume: number }[], 
   else if (score <= 40) decision = "SAT";
 
   // Güvenlik: Volatilite çok yüksekse AL kararını BEKLE yap (Risk yönetimi)
-  // Volatilite eşiğini genişlettik (10'dan 25'e çıkardık) çünkü Türk hisseleri genelde volatildir.
   if (decision === "AL" && volatility > 25) decision = "BEKLE";
 
   // Nihai güven skoru
@@ -320,7 +269,7 @@ export async function runAIEngine(history: { close: number; volume: number }[], 
   return {
     decision,
     confidenceScore: finalConfidence,
-    rawScore: score, // Added rawScore
+    rawScore: score,
     currentPrice,
     volatility,
     trend,

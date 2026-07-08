@@ -42,7 +42,7 @@ function PiyasaPage() {
     throwOnError: false,
   });
   
-  const indexCloses = indexHistory.map(h => h.close).filter(Boolean);
+  const indexCloses = indexHistory.map((h: any) => h.close).filter(Boolean);
 
   const displayData = liveData.length > 0
     ? liveData.map((d) => ({
@@ -135,7 +135,7 @@ function PiyasaPage() {
         {[
           { label: "Toplam Hisse", value: displayData.length.toString(), sub: "BIST" },
           { label: "Yükselen", value: gainers.toString(), sub: "adet", up: true, sparkline: indexCloses },
-          { label: "Düşen", value: losers.toString(), sub: "adet", up: false, sparkline: indexCloses.map(v => -v) },
+          { label: "Düşen", value: losers.toString(), sub: "adet", up: false, sparkline: indexCloses.map((v: any) => -v) },
           { label: "Toplam Hacim", value: `${(totalVol / 1e9).toFixed(1)} Mlr TL`, sub: "günlük" },
           { label: "Ort. Değişim", value: `${avgChange >= 0 ? "+" : ""}${avgChange.toFixed(2)}%`, sub: "ortalama", up: avgChange >= 0 },
         ].map((k) => (
