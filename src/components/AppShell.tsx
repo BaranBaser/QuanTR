@@ -12,7 +12,7 @@ const nav = [
   { icon: Home, label: "Ana Sayfa", to: "/" },
   { icon: LineChart, label: "Piyasa Özeti", to: "/piyasa" },
   { icon: BarChart3, label: "Hisse Analiz", to: "/analiz" },
-  { icon: Sparkles, label: "Piyasa Analizi", to: "/ai" },
+  { icon: Sparkles, label: "AI Karar Motoru", to: "/ai" },
   { icon: Filter, label: "Screener", to: "/screener" },
   { icon: Briefcase, label: "Portföyüm", to: "/portfoy" },
   { icon: Star, label: "Takip Listem", to: "/takip" },

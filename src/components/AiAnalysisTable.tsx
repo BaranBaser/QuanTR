@@ -24,7 +24,10 @@ export function AiAnalysisTable() {
 
   const sortedData = useMemo(() => {
     if (!data) return [];
-    let arr = [...data];
+    
+    // Sadece AL ve SAT olanları filtrele
+    let arr = data.filter((row: any) => row.analysis.decision === "AL" || row.analysis.decision === "SAT");
+    
     if (sortKey) {
       arr.sort((a, b) => {
         let av: any, bv: any;
@@ -75,8 +78,8 @@ export function AiAnalysisTable() {
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Brain className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold text-lg">Yapay Zeka Karar Motoru</h3>
+          <Target className="w-5 h-5 text-primary" />
+          <h3 className="font-semibold text-lg">Sinyal Fırsat Tablosu</h3>
         </div>
         <button
           onClick={() => refetch()}

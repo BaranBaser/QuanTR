@@ -223,8 +223,8 @@ export function runAIEngine(history: { close: number; volume: number }[]): Engin
   // Trend Tespiti
   const trend = sma20 > sma50 ? "YÜKSELEN" : sma20 < sma50 * 0.95 ? "DÜŞEN" : "YATAY";
 
-  // Tahminleri Üret (Gelecek 1, 5, 20, 60 gün)
-  const horizons = [1, 5, 20, 60];
+  // Tahminleri Üret (Gelecek 1, 5, 20, 60, 120 gün)
+  const horizons = [1, 5, 20, 60, 120];
   const predictions = horizons.map(h => calculateEnsemblePrediction(closes, h));
 
   // Bulanık Mantık Karar Motoru (AL / SAT / BEKLE)

@@ -1,256 +1,206 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { AppShell, PageHeader, Sparkline, genLine } from "@/components/AppShell";
+import { createFileRoute } from "@tanstack/react-router";
+import { AppShell, PageHeader } from "@/components/AppShell";
+import { fetchSingleAiAnalysis } from "@/lib/ai.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { fetchBistData } from "@/lib/ai.functions";
-import { stocks } from "@/lib/market-data";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, RefreshCw, BarChart3, Activity, Zap } from "lucide-react";
-import type { StockData } from "@/lib/ai.functions";
+import { useState } from "react";
+import { Brain, CheckCircle2, AlertTriangle, AlertCircle, TrendingUp, TrendingDown, Target, Zap, LineChart as LineChartIcon } from "lucide-react";
+import { stocks } from "@/lib/market-data";
+import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
-type DisplayItem = {
-  symbol: string;
-  name: string;
-  price: number;
-  change: number;
-  changePercent: number;
-  volume: number;
-  high: number;
-  low: number;
-  high52: number;
-  low52: number;
-  sector: string;
-  marketCap: number;
-  pe: number;
-};
+export const Route = createFileRoute("/ai")({ component: AIEnginePage });
 
-export const Route = createFileRoute("/ai")({ component: MarketAnalysisPage });
+function AIEnginePage() {
+  const [selectedSymbol, setSelectedSymbol] = useState("THYAO");
+  const fetchAi = useServerFn(fetchSingleAiAnalysis);
 
-function MarketAnalysisPage() {
-  const fetchFn = useServerFn(fetchBistData);
-
-  const { data: liveData, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["bist-live"],
+  const { data: aiData, isLoading } = useQuery({
+    queryKey: ["ai-analysis-full", selectedSymbol],
     queryFn: async () => {
-      try { return await fetchFn({}); } catch { return []; }
+      try { return await fetchAi({ data: { symbol: selectedSymbol } }); } catch { return null; }
     },
-    staleTime: 60_000,
-    refetchInterval: 120_000,
-    throwOnError: false,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const displayData: DisplayItem[] = liveData && liveData.length > 0
-    ? liveData.map((d: StockData) => ({
-        ...d,
-        change: d.change,
-        changePercent: d.changePercent,
-        sector: stocks.find((s) => s.symbol === d.symbol)?.sector || d.sector || "Diğer",
-        marketCap: stocks.find((s) => s.symbol === d.symbol)?.marketCap || 0,
-        pe: stocks.find((s) => s.symbol === d.symbol)?.pe || 0,
-      }))
-    : stocks.map((s) => ({
-        ...s,
-        change: s.change,
-        changePercent: s.changePercent,
-      }));
+  const popularStocks = [...stocks].sort((a, b) => b.volume - a.volume);
 
-  const gainers = [...displayData].sort((a, b) => b.changePercent - a.changePercent).slice(0, 5);
-  const losers = [...displayData].sort((a, b) => a.changePercent - b.changePercent).slice(0, 5);
-  const byVolume = [...displayData].sort((a, b) => b.volume - a.volume).slice(0, 5);
-
-  const sectors = displayData.reduce((acc, s) => {
-    const existing = acc.find((a) => a.name === s.sector);
-    if (existing) {
-      existing.stocks.push(s);
-      existing.avgChange += s.changePercent;
-    } else {
-      acc.push({ name: s.sector, stocks: [s], avgChange: s.changePercent });
+  const mapHorizonToLabel = (days: number) => {
+    switch(days) {
+      case 1: return "1 Gün";
+      case 5: return "1 Hafta";
+      case 20: return "1 Ay";
+      case 60: return "3 Ay";
+      case 120: return "6 Ay";
+      default: return `${days} Gün`;
     }
-    return acc;
-  }, [] as { name: string; stocks: DisplayItem[]; avgChange: number }[]);
+  };
 
   return (
     <AppShell>
       <PageHeader
-        title="Piyasa Analizi"
-        subtitle="Canlı BIST verileri, en çok yükselenler, düşenler ve sektör analizi."
-        action={
-          <button
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="bg-secondary border border-border rounded-lg px-4 py-2 text-sm inline-flex items-center gap-2 hover:border-primary/40 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-            {isFetching ? "Güncelleniyor..." : "Yenile"}
-          </button>
-        }
+        title="AI Karar Motoru"
+        subtitle="Seçtiğiniz fon/hisse için geçmiş testleri tamamlanmış dinamik ağırlıklı makine öğrenmesi tahminleri."
       />
 
-      {isLoading && (
-        <div className="rounded-xl border border-border bg-card p-8 text-center">
-          <div className="animate-pulse text-muted-foreground">Canlı veriler yükleniyor...</div>
-          <p className="text-xs text-muted-foreground mt-2">Yahoo Finance'ten BIST verileri çekiliyor.</p>
-        </div>
-      )}
-
-      {liveData && liveData.length === 0 && (
-        <div className="rounded-xl border border-border bg-card p-5">
-          <p className="text-sm text-muted-foreground">
-            Canlı veri alınamadı (piyasa kapalı olabilir). Mock veriler gösteriliyor.
-          </p>
-        </div>
-      )}
-
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-4 h-4 text-[color:var(--success)]" />
-            <h3 className="font-semibold text-sm">En Çok Yükselenler</h3>
-          </div>
-          <div className="space-y-3">
-            {gainers.map((s) => (
-              <Link key={s.symbol} to="/analiz" search={{ symbol: s.symbol }} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/40">
-                <div>
-                  <div className="font-semibold text-sm">{s.symbol}</div>
-                  <div className="text-xs text-muted-foreground">{s.name}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium">{typeof s.price === "number" ? s.price.toFixed(2) : s.price} TL</div>
-                  <div className="text-xs text-[color:var(--success)] font-semibold">
-                    +{typeof s.changePercent === "number" ? s.changePercent.toFixed(2) : s.change}%
-                  </div>
-                </div>
-              </Link>
+      <div className="flex flex-col gap-6">
+        {/* HİSSE SEÇİMİ */}
+        <div className="bg-card border border-border p-5 rounded-xl">
+          <label className="text-sm font-semibold mb-2 block text-muted-foreground">Analiz Edilecek Hisse / Fon Seçin:</label>
+          <select 
+            className="w-full md:w-1/3 bg-secondary border border-border rounded-lg px-4 py-3 text-lg font-bold focus:outline-none focus:border-primary/60 transition-colors"
+            value={selectedSymbol}
+            onChange={(e) => setSelectedSymbol(e.target.value)}
+          >
+            {popularStocks.map(s => (
+              <option key={s.symbol} value={s.symbol}>{s.symbol} - {s.name}</option>
             ))}
-          </div>
+          </select>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingDown className="w-4 h-4 text-destructive" />
-            <h3 className="font-semibold text-sm">En Çok Düşenler</h3>
+        {/* ANALİZ SONUÇLARI */}
+        {isLoading ? (
+          <div className="py-20 flex flex-col items-center justify-center text-muted-foreground animate-pulse border border-border bg-card rounded-xl">
+            <Brain className="w-12 h-12 mb-4 opacity-50" />
+            <div className="text-lg">Tüm zaman dilimleri için makine öğrenmesi modelleri test ediliyor...</div>
           </div>
-          <div className="space-y-3">
-            {losers.map((s) => (
-              <Link key={s.symbol} to="/analiz" search={{ symbol: s.symbol }} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/40">
-                <div>
-                  <div className="font-semibold text-sm">{s.symbol}</div>
-                  <div className="text-xs text-muted-foreground">{s.name}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium">{typeof s.price === "number" ? s.price.toFixed(2) : s.price} TL</div>
-                  <div className="text-xs text-destructive font-semibold">
-                    {typeof s.changePercent === "number" ? s.changePercent.toFixed(2) : s.change}%
-                  </div>
-                </div>
-              </Link>
-            ))}
+        ) : !aiData?.analysis ? (
+          <div className="py-20 text-center text-muted-foreground border border-border bg-card rounded-xl">
+            Yeterli geçmiş veri bulunamadı. Algoritmaların çalışması için en az 1 yıllık fiyat geçmişi gereklidir.
           </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart3 className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold text-sm">En Yüksek Hacim</h3>
-          </div>
-          <div className="space-y-3">
-            {byVolume.map((s) => (
-              <Link key={s.symbol} to="/analiz" search={{ symbol: s.symbol }} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/40">
-                <div>
-                  <div className="font-semibold text-sm">{s.symbol}</div>
-                  <div className="text-xs text-muted-foreground">{s.name}</div>
+        ) : (
+          <div className="space-y-6">
+            
+            {/* ANA KARAR */}
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className={`rounded-xl p-6 flex flex-col items-center justify-center text-center border shadow-lg ${
+                aiData.analysis.decision === "AL" ? "bg-[color:var(--success)]/10 border-[color:var(--success)]/30 text-[color:var(--success)] shadow-[color:var(--success)]/10" :
+                aiData.analysis.decision === "SAT" ? "bg-destructive/10 border-destructive/30 text-destructive shadow-destructive/10" :
+                "bg-muted/50 border-border text-foreground shadow-black/5"
+              }`}>
+                <div className="text-sm font-bold tracking-widest uppercase mb-2 opacity-80">Genel Motor Kararı</div>
+                <div className="text-5xl font-black flex items-center gap-3">
+                  {aiData.analysis.decision === "AL" ? <CheckCircle2 className="w-10 h-10" /> : 
+                   aiData.analysis.decision === "SAT" ? <AlertTriangle className="w-10 h-10" /> : 
+                   <AlertCircle className="w-10 h-10" />}
+                  {aiData.analysis.decision}
                 </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium">{typeof s.price === "number" ? s.price.toFixed(2) : s.price} TL</div>
-                  <div className="text-xs text-muted-foreground">
-                    {(s.volume / 1e9).toFixed(2)} Mlr
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Zap className="w-4 h-4 text-primary" />
-          <h3 className="font-semibold">Sektör Analizi</h3>
-        </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sectors.map((s) => (
-            <div key={s.name} className="rounded-lg border border-border p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold text-sm">{s.name}</span>
-                <span className={`text-xs font-semibold ${s.avgChange >= 0 ? "text-[color:var(--success)]" : "text-destructive"}`}>
-                  {s.avgChange >= 0 ? "+" : ""}{(s.avgChange / s.stocks.length).toFixed(2)}%
-                </span>
               </div>
-              <div className="space-y-1">
-                {s.stocks.map((st) => (
-                  <div key={st.symbol} className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{st.symbol}</span>
-                    <span className={st.changePercent >= 0 ? "text-[color:var(--success)]" : "text-destructive"}>
-                      {st.changePercent >= 0 ? "+" : ""}{typeof st.changePercent === "number" ? st.changePercent.toFixed(2) : st.change}%
-                    </span>
-                  </div>
-                ))}
+
+              <div className="rounded-xl p-6 border border-border bg-card flex flex-col items-center justify-center text-center shadow-md">
+                <div className="text-sm font-bold tracking-widest uppercase mb-3 text-muted-foreground">Ortak Güven Skoru</div>
+                <div className="w-full bg-secondary h-4 rounded-full max-w-[200px] overflow-hidden mb-3 relative">
+                  <div className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-1000" style={{ width: `${aiData.analysis.confidenceScore}%` }} />
+                </div>
+                <div className="text-3xl font-black">%{aiData.analysis.confidenceScore.toFixed(1)}</div>
+              </div>
+
+              <div className="rounded-xl p-6 border border-border bg-card flex flex-col items-center justify-center text-center shadow-md">
+                <div className="text-sm font-bold tracking-widest uppercase mb-2 text-muted-foreground">Şu Anki Fiyat</div>
+                <div className="text-4xl font-black">{aiData.analysis.currentPrice.toFixed(2)} TL</div>
+                <div className="text-sm text-muted-foreground mt-2">Volatilite: %{aiData.analysis.volatility.toFixed(2)}</div>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
 
-      <div className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Activity className="w-4 h-4 text-primary" />
-          <h3 className="font-semibold">Tüm Hisseler</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs text-muted-foreground">
-              <tr className="border-b border-border">
-                <th className="text-left p-3 font-normal">Hisse</th>
-                <th className="text-left font-normal">Sektör</th>
-                <th className="text-right font-normal">Fiyat</th>
-                <th className="text-right font-normal">Değişim</th>
-                <th className="text-right font-normal">Hacim</th>
-                <th className="text-right font-normal pr-3">52H Aralığı</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayData.map((s) => (
-                <tr key={s.symbol} className="border-b border-border hover:bg-secondary/40">
-                  <td className="p-3">
-                    <Link to="/analiz" search={{ symbol: s.symbol }} className="font-semibold hover:text-primary">{s.symbol}</Link>
-                    <div className="text-xs text-muted-foreground">{s.name}</div>
-                  </td>
-                  <td className="text-muted-foreground">{s.sector}</td>
-                  <td className="text-right font-medium">{typeof s.price === "number" ? s.price.toFixed(2) : s.price} TL</td>
-                  <td className="text-right">
-                    <span className={s.changePercent >= 0 ? "text-[color:var(--success)]" : "text-destructive"}>
-                      {s.changePercent >= 0 ? "+" : ""}{typeof s.changePercent === "number" ? s.changePercent.toFixed(2) : s.change}%
-                    </span>
-                  </td>
-                  <td className="text-right text-muted-foreground">{(s.volume / 1e9).toFixed(2)} Mlr</td>
-                  <td className="text-right pr-3 text-muted-foreground">{s.low52} - {s.high52}</td>
-                </tr>
+            {/* DETAYLI SÜRE BAZLI TAHMİNLER (Backtest + Ensemble) */}
+            <h2 className="text-xl font-bold mt-8 mb-4 border-b border-border pb-2 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary" /> Zaman Dilimlerine Göre Makine Öğrenmesi Raporları
+            </h2>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {aiData.analysis.predictions.filter((p: any) => [5, 20, 60, 120].includes(p.horizonDays)).map((p: any) => (
+                <div key={p.horizonDays} className="border border-border rounded-xl bg-card overflow-hidden shadow-sm">
+                  {/* Başlık ve Nihai Karar */}
+                  <div className="p-4 bg-secondary/30 border-b border-border flex justify-between items-center">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                      <Target className="w-5 h-5 text-primary" /> {mapHorizonToLabel(p.horizonDays)} Gelecek Projeksiyonu
+                    </h3>
+                    <div className="text-right">
+                      <div className={`text-lg font-black ${p.expectedReturnPercent >= 0 ? "text-[color:var(--success)]" : "text-destructive"}`}>
+                        {p.expectedPrice.toFixed(2)} TL ({p.expectedReturnPercent >= 0 ? "+" : ""}{p.expectedReturnPercent.toFixed(2)}%)
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 space-y-4">
+                    {/* Alt Modellerin Puanlamaları */}
+                    <div>
+                      <div className="text-xs font-bold text-muted-foreground uppercase mb-3">Model Hata Payları & Ağırlıklar (Geçmiş Test)</div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {p.models.map((m: any) => (
+                          <div key={m.model} className="bg-secondary/40 rounded-lg p-3 text-center border border-border/50">
+                            <div className="text-[10px] font-bold text-muted-foreground truncate mb-1">{m.model.replace("_", " ")}</div>
+                            <div className="text-sm font-semibold">{m.prediction.toFixed(2)}</div>
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50 text-[10px]">
+                              <span className="text-destructive font-medium">Hata: %{m.rmse.toFixed(1)}</span>
+                              <span className="text-primary font-bold">Ağ: %{(m.weight * 100).toFixed(0)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Ensemble Detayları */}
+                    <div className="bg-background rounded-lg p-4 text-sm border border-border flex justify-between items-center">
+                      <div>
+                        <div className="text-muted-foreground text-xs mb-1">Nihai Ortak Güven (Yanılma Payı)</div>
+                        <div className="font-semibold text-destructive">± %{p.rmse.toFixed(2)}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-muted-foreground text-xs mb-1">Hesaplanan Güvenlik Bandı</div>
+                        <div className="font-semibold">{p.lowerBand.toFixed(2)} - {p.upperBand.toFixed(2)} TL</div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
 
-      <div className="rounded-xl border border-primary/30 p-5 flex flex-wrap items-center justify-between gap-4" style={{ background: "linear-gradient(90deg, oklch(0.22 0.05 82 / 0.5), oklch(0.18 0.01 260))" }}>
-        <div className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-full bg-primary/20 flex items-center justify-center"><Activity className="w-5 h-5 text-primary" /></div>
-          <div>
-            <div className="font-semibold">Detaylı Hisse Analizi</div>
-            <p className="text-sm text-muted-foreground">Her hisse için teknik analiz ve grafikleri inceleyin.</p>
+            {/* BÜYÜK GRAFİK */}
+            <div className="border border-border rounded-xl bg-card p-6 shadow-sm mt-8">
+              <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                <LineChartIcon className="w-5 h-5 text-primary" /> Modellerin Zaman Çizelgesindeki Beklentileri
+              </h3>
+              <div className="h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={[
+                    { name: "Şu An", Ensemble: aiData.analysis.currentPrice, AltBant: aiData.analysis.currentPrice, ÜstBant: aiData.analysis.currentPrice, LinearRegression: aiData.analysis.currentPrice, MomentumExtrapolation: aiData.analysis.currentPrice, MeanReversion: aiData.analysis.currentPrice, EMA_Projection: aiData.analysis.currentPrice },
+                    ...aiData.analysis.predictions.map((p: any) => {
+                      const obj: any = {
+                        name: mapHorizonToLabel(p.horizonDays),
+                        Ensemble: p.expectedPrice,
+                        AltBant: p.lowerBand,
+                        ÜstBant: p.upperBand,
+                      };
+                      p.models.forEach((m: any) => { obj[m.model] = m.prediction; });
+                      return obj;
+                    })
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} vertical={false} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "currentColor", opacity: 0.5 }} />
+                    <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "currentColor", opacity: 0.5 }} width={40} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                      itemStyle={{ fontSize: '12px', padding: '2px 0' }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                    
+                    <Area type="monotone" dataKey="ÜstBant" fill="currentColor" fillOpacity={0.03} stroke="none" />
+                    <Area type="monotone" dataKey="AltBant" fill="var(--background)" fillOpacity={1} stroke="none" />
+                    
+                    <Line type="monotone" dataKey="LinearRegression" stroke="oklch(0.6 0.15 200)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Lineer Regresyon" />
+                    <Line type="monotone" dataKey="MomentumExtrapolation" stroke="oklch(0.6 0.15 40)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Momentum" />
+                    <Line type="monotone" dataKey="MeanReversion" stroke="oklch(0.6 0.15 300)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Mean Reversion" />
+                    <Line type="monotone" dataKey="EMA_Projection" stroke="oklch(0.6 0.15 100)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="EMA Projeksiyonu" />
+                    
+                    <Line type="monotone" dataKey="Ensemble" stroke="var(--primary)" strokeWidth={4} dot={{ r: 6, fill: "var(--primary)" }} activeDot={{ r: 8 }} name="Nihai Ortak Beklenti" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
           </div>
-        </div>
-        <Link to="/analiz" className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-medium rounded-lg px-5 py-3 hover:bg-primary/90">
-          Analiz Sayfasına Git
-        </Link>
+        )}
       </div>
     </AppShell>
   );
