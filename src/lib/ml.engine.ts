@@ -342,8 +342,8 @@ export function runSimpleTechnicalEngine(
 
   // Karar
   let decision: "AL" | "SAT" | "BEKLE" = "BEKLE";
-  if (score >= 70) decision = "AL";
-  else if (score <= 30) decision = "SAT";
+  if (score >= 60) decision = "AL"; // Yüksek hassasiyet için 70 yerine 60
+  else if (score <= 40) decision = "SAT"; // Yüksek hassasiyet için 30 yerine 40
 
   return {
     decision,

@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Brain, CheckCircle2, AlertTriangle, AlertCircle, TrendingUp, TrendingDown, Target, Zap, LineChart as LineChartIcon } from "lucide-react";
 import { stocks } from "@/lib/market-data";
+import { BIST_SYMBOLS, GLOBAL_SYMBOLS } from "@/lib/ai.functions";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
 export const Route = createFileRoute("/ai")({ component: AIEnginePage });
@@ -32,7 +33,18 @@ function AIEnginePage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const popularStocks = [...stocks].sort((a, b) => b.volume - a.volume);
+  // Combine popular stocks with all available symbols so nothing is missing
+  const allSymbols = Array.from(new Set([
+    ...stocks.map(s => s.symbol),
+    ...BIST_SYMBOLS,
+    ...GLOBAL_SYMBOLS
+  ])).sort();
+
+  // Helper to get name
+  const getSymbolName = (sym: string) => {
+    const s = stocks.find(x => x.symbol === sym);
+    return s ? `${sym} - ${s.name}` : sym;
+  };
 
   const mapHorizonToLabel = (days: number) => {
     switch(days) {
@@ -105,8 +117,8 @@ function AIEnginePage() {
               value={selectedSymbol}
               onChange={(e) => setSelectedSymbol(e.target.value)}
             >
-              {popularStocks.map(s => (
-                <option key={s.symbol} value={s.symbol}>{s.symbol} - {s.name}</option>
+              {allSymbols.map(sym => (
+                <option key={sym} value={sym}>{getSymbolName(sym)}</option>
               ))}
             </select>
           </div>
