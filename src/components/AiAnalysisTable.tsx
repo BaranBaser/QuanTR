@@ -3,6 +3,12 @@ import { fetchTechnicalSignals } from "@/lib/ai.functions";
 import { RefreshCw, Target, Info, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function AiAnalysisTable() {
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -18,8 +24,8 @@ export function AiAnalysisTable() {
     throwOnError: false,
   });
 
-  type SortKey = "symbol" | "decision" | "score" | "price";
-  const [sortKey, setSortKey] = useState<SortKey | null>("score");
+  type SortKey = "symbol" | "decision" | "price";
+  const [sortKey, setSortKey] = useState<SortKey | null>("decision");
   const [sortAsc, setSortAsc] = useState(false);
 
   const sortedData = useMemo(() => {
@@ -34,11 +40,9 @@ export function AiAnalysisTable() {
         switch (sortKey) {
           case "symbol": av = a.symbol; bv = b.symbol; break;
           case "decision": 
-            const dmap = { "AL": 3, "BEKLE": 2, "SAT": 1 };
-            av = dmap[a.analysis.decision as keyof typeof dmap] || 0; 
-            bv = dmap[b.analysis.decision as keyof typeof dmap] || 0; 
+            av = a.analysis.rawScore; 
+            bv = b.analysis.rawScore; 
             break;
-          case "score": av = a.analysis.rawScore; bv = b.analysis.rawScore; break;
           case "price": av = a.analysis.currentPrice; bv = b.analysis.currentPrice; break;
           default: return 0;
         }
@@ -93,59 +97,88 @@ export function AiAnalysisTable() {
           Piyasa Taranıyor (100+ Hisse)...
         </div>
       ) : (
-        <div className="overflow-x-auto max-h-[400px]">
-          <table className="w-full text-sm relative">
-            <thead className="text-xs text-muted-foreground border-b border-border sticky top-0 bg-card z-10 shadow-sm">
-              <tr>
-                <th className="text-left font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("symbol")}>
-                  <span className="inline-flex items-center gap-1">Hisse <SortIcon k="symbol" /></span>
-                </th>
-                <th className="text-center font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("decision")}>
-                  <span className="inline-flex items-center justify-center gap-1">Durum <SortIcon k="decision" /></span>
-                </th>
-                <th className="text-center font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("score")}>
-                  <span className="inline-flex items-center justify-center gap-1">Teknik Puan <SortIcon k="score" /></span>
-                </th>
-                <th className="text-right font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("price")}>
-                  <span className="inline-flex items-center justify-end gap-1">Fiyat <SortIcon k="price" /></span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedData && sortedData.length > 0 ? (
-                sortedData.map((row) => (
-                  <tr key={row.symbol} className="border-b border-border/50 hover:bg-secondary/20">
-                    <td className="py-3">
-                      <Link to="/analiz" search={{ symbol: row.symbol }} className="font-bold hover:text-primary transition-colors">
-                        {row.symbol}
-                      </Link>
-                    </td>
-                    <td className="text-center py-3">
-                      <span className={`px-2.5 py-1 text-xs font-bold rounded-lg ${
-                        row.analysis.decision === "AL" ? "bg-[color:var(--success)]/20 text-[color:var(--success)]" :
-                        "bg-destructive/20 text-destructive"
-                      }`}>
-                        {row.analysis.decision}
-                      </span>
-                    </td>
-                    <td className="text-center py-3 font-semibold">
-                      {row.analysis.rawScore.toFixed(0)} Puan
-                    </td>
-                    <td className="text-right py-3 text-xs font-bold">
-                      {row.analysis.currentPrice.toFixed(2)} ₺
+        <TooltipProvider>
+          <div className="overflow-x-auto max-h-[400px]">
+            <table className="w-full text-sm relative">
+              <thead className="text-xs text-muted-foreground border-b border-border sticky top-0 bg-card z-10 shadow-sm">
+                <tr>
+                  <th className="text-left font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("symbol")}>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1">
+                          Hisse <Info className="w-3 h-3" /> <SortIcon k="symbol" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>BIST piyasasında işlem gören hissenin kısa sembolüdür.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </th>
+                  <th className="text-center font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("decision")}>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          Durum (Puan) <Info className="w-3 h-3" /> <SortIcon k="decision" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs text-center">
+                          Yapay Zeka ve Teknik indikatörlerin ürettiği AL veya SAT kararıdır.<br/>
+                          Yanındaki puan sinyalin gücünü belirtir.<br/>
+                          70 ve üzeri AL, 30 ve altı SAT sinyali üretir.<br/>
+                          Tıklayarak güçlüden zayıfa sıralayabilirsiniz.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </th>
+                  <th className="text-right font-medium pb-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("price")}>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center justify-end gap-1">
+                          Fiyat <Info className="w-3 h-3" /> <SortIcon k="price" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Hissenin analiz anındaki son güncel fiyatıdır.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedData && sortedData.length > 0 ? (
+                  sortedData.map((row) => (
+                    <tr key={row.symbol} className="border-b border-border/50 hover:bg-secondary/20">
+                      <td className="py-3">
+                        <Link to="/analiz" search={{ symbol: row.symbol }} className="font-bold hover:text-primary transition-colors">
+                          {row.symbol}
+                        </Link>
+                      </td>
+                      <td className="text-center py-3">
+                        <span className={`px-2.5 py-1 text-xs font-bold rounded-lg inline-flex items-center gap-1.5 ${
+                          row.analysis.decision === "AL" ? "bg-[color:var(--success)]/20 text-[color:var(--success)]" :
+                          "bg-destructive/20 text-destructive"
+                        }`}>
+                          {row.analysis.decision}
+                          <span className="opacity-70 font-medium">({row.analysis.rawScore.toFixed(0)} Puan)</span>
+                        </span>
+                      </td>
+                      <td className="text-right py-3 text-xs font-bold">
+                        {row.analysis.currentPrice.toFixed(2)} ₺
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="text-center p-4 text-muted-foreground text-xs">
+                      Analiz üretilemedi veya belirgin bir sinyal yok.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="text-center p-4 text-muted-foreground text-xs">
-                    Analiz üretilemedi veya belirgin bir sinyal yok.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TooltipProvider>
       )}
     </div>
   );

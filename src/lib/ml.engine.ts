@@ -393,8 +393,8 @@ export function runSimpleTechnicalEngine(
 
   // Karar
   let decision: "AL" | "SAT" | "BEKLE" = "BEKLE";
-  if (score >= 60) decision = "AL";
-  else if (score <= 40) decision = "SAT";
+  if (score >= 70) decision = "AL";
+  else if (score <= 30) decision = "SAT";
 
   return {
     decision,
