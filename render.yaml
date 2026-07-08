@@ -1,5 +1,15 @@
 services:
   - type: web
+    name: stockbear-frontend
+    env: node
+    buildCommand: "npm install && npm run build"
+    startCommand: "node .output/server/index.mjs"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PYTHON_API_URL
+        value: "https://stockbear-ml-api.onrender.com"
+  - type: web
     name: stockbear-ml-api
     env: python
     buildCommand: "pip install -r ml-api/requirements.txt"
