@@ -5,7 +5,16 @@ import { fetchCalendar } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 
-export const Route = createFileRoute("/takvim")({ component: CalendarPage });
+export const Route = createFileRoute("/takvim")({
+  head: () => ({
+    meta: [
+      { title: "Ekonomik Takvim — stockbear" },
+      { name: "description", content: "Yaklaşan ekonomik olayları ve verileri takip edin." },
+      { property: "og:title", content: "Ekonomik Takvim — stockbear" },
+    ],
+  }),
+  component: CalendarPage,
+});
 
 function CalendarPage() {
   const fetchCalFn = useServerFn(fetchCalendar);

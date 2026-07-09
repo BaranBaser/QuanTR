@@ -12,6 +12,13 @@ import { stocks, SECTOR_MAP } from "@/lib/market-data";
 import { useLivePrice } from "@/lib/useLivePrice";
 
 export const Route = createFileRoute("/rapor")({
+  head: () => ({
+    meta: [
+      { title: "Rapor Üretici — stockbear" },
+      { name: "description", content: "Hisse analiz raporları oluşturun, PNG veya PDF olarak indirin." },
+      { property: "og:title", content: "Rapor Üretici — stockbear" },
+    ],
+  }),
   component: RaporPage,
 });
 

@@ -4,7 +4,16 @@ import { stocks, findStock } from "@/lib/market-data";
 import { Play, RotateCcw, Beaker } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
-export const Route = createFileRoute("/simulasyon")({ component: SimPage });
+export const Route = createFileRoute("/simulasyon")({
+  head: () => ({
+    meta: [
+      { title: "Simülasyon — stockbear" },
+      { name: "description", content: "Gerçek para riski olmadan alım-satım pratiği yapın." },
+      { property: "og:title", content: "Simülasyon — stockbear" },
+    ],
+  }),
+  component: SimPage,
+});
 
 type Trade = { day: number; symbol: string; type: "AL" | "SAT"; lots: number; price: number };
 

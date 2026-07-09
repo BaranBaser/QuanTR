@@ -8,7 +8,16 @@ import { useState, useMemo } from "react";
 import { stocks } from "@/lib/market-data";
 import { analyzeNewsSentiment, analyzeSentiment, type SentimentResult } from "@/lib/sentiment";
 
-export const Route = createFileRoute("/haberler")({ component: NewsPage });
+export const Route = createFileRoute("/haberler")({
+  head: () => ({
+    meta: [
+      { title: "Haberler — stockbear" },
+      { name: "description", content: "Güncel finans haberlerini okuyun, duygu analizini görüntüleyin." },
+      { property: "og:title", content: "Haberler — stockbear" },
+    ],
+  }),
+  component: NewsPage,
+});
 
 const tags = ["Tümü", "Ekonomi", "BIST", "Döviz", "Emtia", "Global", "Piyasa"];
 

@@ -10,7 +10,16 @@ import { SECTOR_MAP } from "@/lib/market-data";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import { calcVolatility } from "@/lib/ml.engine";
 
-export const Route = createFileRoute("/portfoy")({ component: PortfoyPage });
+export const Route = createFileRoute("/portfoy")({
+  head: () => ({
+    meta: [
+      { title: "Portföyüm — stockbear" },
+      { name: "description", content: "Portföyünüzü takip edin, kâr/zarar analizi yapın, sektör dağılımı görüntüleyin." },
+      { property: "og:title", content: "Portföyüm — stockbear" },
+    ],
+  }),
+  component: PortfoyPage,
+});
 
 const PIE_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",

@@ -20,6 +20,13 @@ import { stocks } from "@/lib/market-data";
 import { useLivePrice } from "@/lib/useLivePrice";
 
 export const Route = createFileRoute("/karsilastir")({
+  head: () => ({
+    meta: [
+      { title: "Karşılaştırmalı Analiz — stockbear" },
+      { name: "description", content: "2-4 hisseyi yan yana karşılaştırın." },
+      { property: "og:title", content: "Karşılaştırmalı Analiz — stockbear" },
+    ],
+  }),
   component: KarsilastirPage,
 });
 

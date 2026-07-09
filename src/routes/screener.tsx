@@ -16,6 +16,13 @@ const screenerSearchSchema = z.object({
 
 export const Route = createFileRoute("/screener")({
   validateSearch: screenerSearchSchema,
+  head: () => ({
+    meta: [
+      { title: "Hisse Screener — stockbear" },
+      { name: "description", content: "48 BIST hissesini kriterlerinize göre filtreleyin." },
+      { property: "og:title", content: "Hisse Screener — stockbear" },
+    ],
+  }),
   component: ScreenerPage,
 });
 

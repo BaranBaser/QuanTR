@@ -9,7 +9,16 @@ import { useLivePrice } from "@/lib/useLivePrice";
 import { Star, Plus, X } from "lucide-react";
 import { useState } from "react";
 
-export const Route = createFileRoute("/takip")({ component: TakipPage });
+export const Route = createFileRoute("/takip")({
+  head: () => ({
+    meta: [
+      { title: "Takip Listem — stockbear" },
+      { name: "description", content: "Beğendiğiniz hisseleri takip edin, canlı fiyatlarını izleyin." },
+      { property: "og:title", content: "Takip Listem — stockbear" },
+    ],
+  }),
+  component: TakipPage,
+});
 
 function WatchlistCard({ symbol, onToggle }: { symbol: string; onToggle: () => void }) {
   const { price, changePercent, volume, isLoading } = useLivePrice(symbol);

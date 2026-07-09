@@ -7,7 +7,16 @@ import { useQuery } from "@tanstack/react-query";
 import { Bell, BellOff, Trash2, Plus, TrendingUp, TrendingDown, BellRing } from "lucide-react";
 import { useState, useEffect } from "react";
 
-export const Route = createFileRoute("/alarm")({ component: AlarmPage });
+export const Route = createFileRoute("/alarm")({
+  head: () => ({
+    meta: [
+      { title: "Alarmlar — stockbear" },
+      { name: "description", content: "Fiyat alarmları oluşturun, hedef fiyatlara ulaşıldığında bildirim alın." },
+      { property: "og:title", content: "Alarmlar — stockbear" },
+    ],
+  }),
+  component: AlarmPage,
+});
 
 function AlarmPage() {
   const { alarms, add, remove, toggle } = useAlarms();

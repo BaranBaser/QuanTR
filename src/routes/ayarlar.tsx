@@ -3,7 +3,16 @@ import { AppShell, PageHeader } from "@/components/AppShell";
 import { User, Bell, Shield, Palette, Check, Sun, Moon, LogOut, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-export const Route = createFileRoute("/ayarlar")({ component: SettingsPage });
+export const Route = createFileRoute("/ayarlar")({
+  head: () => ({
+    meta: [
+      { title: "Ayarlar — stockbear" },
+      { name: "description", content: "Hesap ayarları ve tercihleri." },
+      { property: "og:title", content: "Ayarlar — stockbear" },
+    ],
+  }),
+  component: SettingsPage,
+});
 
 interface StockBearUser {
   name: string;
