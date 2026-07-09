@@ -13,9 +13,12 @@ import { Route as TakvimRouteImport } from './routes/takvim'
 import { Route as TakipRouteImport } from './routes/takip'
 import { Route as SimulasyonRouteImport } from './routes/simulasyon'
 import { Route as ScreenerRouteImport } from './routes/screener'
+import { Route as RaporRouteImport } from './routes/rapor'
 import { Route as PortfoyRouteImport } from './routes/portfoy'
 import { Route as PiyasaRouteImport } from './routes/piyasa'
+import { Route as KarsilastirRouteImport } from './routes/karsilastir'
 import { Route as HaberlerRouteImport } from './routes/haberler'
+import { Route as GrafikRouteImport } from './routes/grafik'
 import { Route as AyarlarRouteImport } from './routes/ayarlar'
 import { Route as AnalizRouteImport } from './routes/analiz'
 import { Route as AlarmRouteImport } from './routes/alarm'
@@ -42,6 +45,11 @@ const ScreenerRoute = ScreenerRouteImport.update({
   path: '/screener',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RaporRoute = RaporRouteImport.update({
+  id: '/rapor',
+  path: '/rapor',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PortfoyRoute = PortfoyRouteImport.update({
   id: '/portfoy',
   path: '/portfoy',
@@ -52,9 +60,19 @@ const PiyasaRoute = PiyasaRouteImport.update({
   path: '/piyasa',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KarsilastirRoute = KarsilastirRouteImport.update({
+  id: '/karsilastir',
+  path: '/karsilastir',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HaberlerRoute = HaberlerRouteImport.update({
   id: '/haberler',
   path: '/haberler',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GrafikRoute = GrafikRouteImport.update({
+  id: '/grafik',
+  path: '/grafik',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AyarlarRoute = AyarlarRouteImport.update({
@@ -89,9 +107,12 @@ export interface FileRoutesByFullPath {
   '/alarm': typeof AlarmRoute
   '/analiz': typeof AnalizRoute
   '/ayarlar': typeof AyarlarRoute
+  '/grafik': typeof GrafikRoute
   '/haberler': typeof HaberlerRoute
+  '/karsilastir': typeof KarsilastirRoute
   '/piyasa': typeof PiyasaRoute
   '/portfoy': typeof PortfoyRoute
+  '/rapor': typeof RaporRoute
   '/screener': typeof ScreenerRoute
   '/simulasyon': typeof SimulasyonRoute
   '/takip': typeof TakipRoute
@@ -103,9 +124,12 @@ export interface FileRoutesByTo {
   '/alarm': typeof AlarmRoute
   '/analiz': typeof AnalizRoute
   '/ayarlar': typeof AyarlarRoute
+  '/grafik': typeof GrafikRoute
   '/haberler': typeof HaberlerRoute
+  '/karsilastir': typeof KarsilastirRoute
   '/piyasa': typeof PiyasaRoute
   '/portfoy': typeof PortfoyRoute
+  '/rapor': typeof RaporRoute
   '/screener': typeof ScreenerRoute
   '/simulasyon': typeof SimulasyonRoute
   '/takip': typeof TakipRoute
@@ -118,9 +142,12 @@ export interface FileRoutesById {
   '/alarm': typeof AlarmRoute
   '/analiz': typeof AnalizRoute
   '/ayarlar': typeof AyarlarRoute
+  '/grafik': typeof GrafikRoute
   '/haberler': typeof HaberlerRoute
+  '/karsilastir': typeof KarsilastirRoute
   '/piyasa': typeof PiyasaRoute
   '/portfoy': typeof PortfoyRoute
+  '/rapor': typeof RaporRoute
   '/screener': typeof ScreenerRoute
   '/simulasyon': typeof SimulasyonRoute
   '/takip': typeof TakipRoute
@@ -134,9 +161,12 @@ export interface FileRouteTypes {
     | '/alarm'
     | '/analiz'
     | '/ayarlar'
+    | '/grafik'
     | '/haberler'
+    | '/karsilastir'
     | '/piyasa'
     | '/portfoy'
+    | '/rapor'
     | '/screener'
     | '/simulasyon'
     | '/takip'
@@ -148,9 +178,12 @@ export interface FileRouteTypes {
     | '/alarm'
     | '/analiz'
     | '/ayarlar'
+    | '/grafik'
     | '/haberler'
+    | '/karsilastir'
     | '/piyasa'
     | '/portfoy'
+    | '/rapor'
     | '/screener'
     | '/simulasyon'
     | '/takip'
@@ -162,9 +195,12 @@ export interface FileRouteTypes {
     | '/alarm'
     | '/analiz'
     | '/ayarlar'
+    | '/grafik'
     | '/haberler'
+    | '/karsilastir'
     | '/piyasa'
     | '/portfoy'
+    | '/rapor'
     | '/screener'
     | '/simulasyon'
     | '/takip'
@@ -177,9 +213,12 @@ export interface RootRouteChildren {
   AlarmRoute: typeof AlarmRoute
   AnalizRoute: typeof AnalizRoute
   AyarlarRoute: typeof AyarlarRoute
+  GrafikRoute: typeof GrafikRoute
   HaberlerRoute: typeof HaberlerRoute
+  KarsilastirRoute: typeof KarsilastirRoute
   PiyasaRoute: typeof PiyasaRoute
   PortfoyRoute: typeof PortfoyRoute
+  RaporRoute: typeof RaporRoute
   ScreenerRoute: typeof ScreenerRoute
   SimulasyonRoute: typeof SimulasyonRoute
   TakipRoute: typeof TakipRoute
@@ -216,6 +255,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ScreenerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rapor': {
+      id: '/rapor'
+      path: '/rapor'
+      fullPath: '/rapor'
+      preLoaderRoute: typeof RaporRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/portfoy': {
       id: '/portfoy'
       path: '/portfoy'
@@ -230,11 +276,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PiyasaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/karsilastir': {
+      id: '/karsilastir'
+      path: '/karsilastir'
+      fullPath: '/karsilastir'
+      preLoaderRoute: typeof KarsilastirRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/haberler': {
       id: '/haberler'
       path: '/haberler'
       fullPath: '/haberler'
       preLoaderRoute: typeof HaberlerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/grafik': {
+      id: '/grafik'
+      path: '/grafik'
+      fullPath: '/grafik'
+      preLoaderRoute: typeof GrafikRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ayarlar': {
@@ -281,9 +341,12 @@ const rootRouteChildren: RootRouteChildren = {
   AlarmRoute: AlarmRoute,
   AnalizRoute: AnalizRoute,
   AyarlarRoute: AyarlarRoute,
+  GrafikRoute: GrafikRoute,
   HaberlerRoute: HaberlerRoute,
+  KarsilastirRoute: KarsilastirRoute,
   PiyasaRoute: PiyasaRoute,
   PortfoyRoute: PortfoyRoute,
+  RaporRoute: RaporRoute,
   ScreenerRoute: ScreenerRoute,
   SimulasyonRoute: SimulasyonRoute,
   TakipRoute: TakipRoute,

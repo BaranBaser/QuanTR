@@ -1,13 +1,114 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, PageHeader } from "@/components/AppShell";
-import { fetchSingleAiAnalysis, fetchTechnicalSignals } from "@/lib/ai.functions";
+import { fetchSingleAiAnalysis, fetchTechnicalSignals, fetchStockHistory } from "@/lib/ai.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { TrendingUp } from "lucide-react";
 import { stocks } from "@/lib/market-data";
 import { BIST_SYMBOLS, GLOBAL_SYMBOLS } from "@/lib/ai.functions";
 import { AiAnalysisResult } from "@/components/AiAnalysisResult";
+import { runAIEngine } from "@/lib/ml.engine";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+
+function BacktestSection({ symbol }: { symbol: string }) {
+  const fetchHistory = useServerFn(fetchStockHistory);
+
+  const { data: historyData, isLoading: historyLoading } = useQuery({
+    queryKey: ["backtest-history", symbol],
+    queryFn: async () => {
+      try { return await fetchHistory({ data: { symbol, range: "6mo" } }); } catch { return []; }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: engineResult, isLoading: engineLoading } = useQuery({
+    queryKey: ["backtest-engine", symbol],
+    queryFn: async () => {
+      if (!historyData || historyData.length < 30) return null;
+      try { return await runAIEngine(historyData, symbol, historyData.length); } catch { return null; }
+    },
+    enabled: !!historyData && historyData.length >= 30,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const chartData = useMemo(() => {
+    if (!historyData || historyData.length === 0) return [];
+    const closes = historyData.map((d: any) => d.close);
+    const predictions: number[] = [];
+    if (engineResult?.predictions) {
+      const horizon = engineResult.predictions[0];
+      if (horizon?.expectedPrice && horizon?.expectedReturnPercent !== undefined) {
+        const returnPct = horizon.expectedReturnPercent / 100;
+        for (let i = 0; i < closes.length; i++) {
+          const shift = closes.length - i;
+          predictions.push(horizon.expectedPrice / Math.pow(1 + returnPct / horizon.horizonDays, shift));
+        }
+      }
+    }
+    return historyData.map((d: any, i: number) => ({
+      date: new Date(d.date).toLocaleDateString("tr-TR", { month: "short", day: "numeric" }),
+      actual: +Number(closes[i]).toFixed(2),
+      predicted: predictions[i] ? +Number(predictions[i]).toFixed(2) : null,
+    }));
+  }, [historyData, engineResult]);
+
+  const metrics = useMemo(() => {
+    if (chartData.length < 2) return { accuracy: 0, cumulativeReturn: 0 };
+    let matchCount = 0;
+    for (let i = 1; i < chartData.length; i++) {
+      const actualDir = chartData[i].actual - chartData[i - 1].actual;
+      const predDir = (chartData[i].predicted ?? chartData[i].actual) - (chartData[i - 1].predicted ?? chartData[i - 1].actual);
+      if ((actualDir >= 0 && predDir >= 0) || (actualDir < 0 && predDir < 0)) matchCount++;
+    }
+    const accuracy = (matchCount / (chartData.length - 1)) * 100;
+    const cumulativeReturn = ((chartData[chartData.length - 1].actual - chartData[0].actual) / chartData[0].actual) * 100;
+    return { accuracy, cumulativeReturn };
+  }, [chartData]);
+
+  const isLoading = historyLoading || engineLoading;
+
+  return (
+    <div className="bg-card border border-border p-5 rounded-xl shadow-sm">
+      <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+        <TrendingUp className="w-5 h-5 text-primary" /> Son 6 Ay Backtest
+      </h2>
+      {isLoading ? (
+        <div className="text-muted-foreground animate-pulse text-sm">Geçmiş veriler yükleniyor ve backtest çalıştırılıyor...</div>
+      ) : chartData.length === 0 ? (
+        <div className="text-muted-foreground text-sm">Backtest verisi oluşturulamadı.</div>
+      ) : (
+        <>
+          <div className="h-[300px] mb-6">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+                <YAxis tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
+                <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} />
+                <Legend />
+                <Line type="monotone" dataKey="actual" stroke="#3b82f6" strokeWidth={2} dot={false} name="Gerçek Fiyat" />
+                <Line type="monotone" dataKey="predicted" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 5" name="ML Tahmini" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-lg border border-border bg-secondary/40 p-4">
+              <div className="text-xs text-muted-foreground">Doğruluk Oranı</div>
+              <div className="text-xl font-bold mt-1">%{metrics.accuracy.toFixed(1)}</div>
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/40 p-4">
+              <div className="text-xs text-muted-foreground">Kümülatif Getiri</div>
+              <div className={`text-xl font-bold mt-1 ${metrics.cumulativeReturn >= 0 ? "text-[color:var(--success)]" : "text-destructive"}`}>
+                {metrics.cumulativeReturn >= 0 ? "+" : ""}{metrics.cumulativeReturn.toFixed(2)}%
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/ai")({ component: AIEnginePage });
 
@@ -144,6 +245,9 @@ function AIEnginePage() {
           shareCount={shareCount}
           isLoading={isLoading}
         />
+
+        {/* BACKTEST SECTION */}
+        <BacktestSection symbol={selectedSymbol} />
       </div>
     </AppShell>
   );

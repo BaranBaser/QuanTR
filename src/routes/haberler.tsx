@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Newspaper, ExternalLink, RefreshCw, Search, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { stocks } from "@/lib/market-data";
+import { analyzeNewsSentiment, analyzeSentiment, type SentimentResult } from "@/lib/sentiment";
 
 export const Route = createFileRoute("/haberler")({ component: NewsPage });
 
@@ -14,6 +15,7 @@ const tags = ["Tümü", "Ekonomi", "BIST", "Döviz", "Emtia", "Global", "Piyasa"
 function NewsPage() {
   const [tag, setTag] = useState("Tümü");
   const [sourceFilter, setSourceFilter] = useState("Tümü");
+  const [sentimentFilter, setSentimentFilter] = useState<"all" | "positive" | "negative" | "neutral">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
@@ -32,6 +34,17 @@ function NewsPage() {
 
   const sources = ["Tümü", ...Array.from(new Set(allNews.map((n) => n.source)))];
   
+  const newsWithSentiment = useMemo(() => {
+    return allNews.map(n => ({
+      ...n,
+      sentiment: analyzeSentiment(n.title),
+    }));
+  }, [allNews]);
+
+  const sentiment = useMemo(() => analyzeNewsSentiment(allNews), [allNews]);
+
+  const sentimentFilters = ["all", "positive", "negative", "neutral"] as const;
+  
   const searchResults = useMemo(() => {
     if (!searchQuery) return [];
     const q = searchQuery.toLowerCase();
@@ -39,15 +52,16 @@ function NewsPage() {
   }, [searchQuery]);
 
   const filtered = useMemo(() => {
-    let result = allNews.filter((n) => {
+    let result = newsWithSentiment.filter((n) => {
       if (tag !== "Tümü" && n.tag !== tag) return false;
       if (sourceFilter !== "Tümü" && n.source !== sourceFilter) return false;
+      if (sentimentFilter !== "all" && n.sentiment !== sentimentFilter) return false;
       return true;
     });
     // Resimli haberleri ve popüler olanları önceliklendir (Thumbnail olanlar üste)
     result.sort((a, b) => (b.thumbnail ? 1 : 0) - (a.thumbnail ? 1 : 0));
     return result;
-  }, [allNews, tag, sourceFilter]);
+  }, [newsWithSentiment, tag, sourceFilter, sentimentFilter]);
 
   return (
     <AppShell>
@@ -106,6 +120,37 @@ function NewsPage() {
           <button key={s} onClick={() => setSourceFilter(s)} className={`px-2 py-1 rounded text-xs border ${sourceFilter === s ? "bg-secondary text-foreground border-primary/40" : "bg-muted/50 border-border text-muted-foreground hover:border-primary/40"}`}>{s}</button>
         ))}
       </div>
+
+      <div className="flex flex-wrap gap-2">
+        {sentimentFilters.map((sf) => (
+          <button key={sf} onClick={() => setSentimentFilter(sf)} className={`px-2 py-1 rounded text-xs border ${sentimentFilter === sf ? "bg-secondary text-foreground border-primary/40" : "bg-muted/50 border-border text-muted-foreground hover:border-primary/40"}`}>
+            {sf === "all" ? "Tüm Duygular" : sf === "positive" ? "🟢 Pozitif" : sf === "negative" ? "🔴 Negatif" : "⚪ Nötr"}
+          </button>
+        ))}
+      </div>
+
+      {allNews.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-3 flex flex-wrap items-center gap-3 text-sm">
+          <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${
+            sentiment.overall === "positive" ? "bg-[color:var(--success)]/15 text-[color:var(--success)]" :
+            sentiment.overall === "negative" ? "bg-destructive/15 text-destructive" :
+            "bg-muted text-muted-foreground"
+          }`}>
+            {sentiment.overall === "positive" ? "🟢" : sentiment.overall === "negative" ? "🔴" : "⚪"}
+            {sentiment.overall === "positive" ? "Pozitif" : sentiment.overall === "negative" ? "Negatif" : "Nötr"}
+          </span>
+          <div className="flex-1 h-2 rounded-full overflow-hidden bg-muted/50 min-w-[100px]">
+            <div className="flex h-full">
+              <div className="h-full bg-[color:var(--success)]" style={{ width: `${allNews.length > 0 ? (sentiment.positiveCount / allNews.length) * 100 : 0}%` }} />
+              <div className="h-full bg-destructive" style={{ width: `${allNews.length > 0 ? (sentiment.negativeCount / allNews.length) * 100 : 0}%` }} />
+              <div className="h-full bg-muted-foreground/30" style={{ width: `${allNews.length > 0 ? (sentiment.neutralCount / allNews.length) * 100 : 0}%` }} />
+            </div>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {sentiment.positiveCount} pozitif, {sentiment.negativeCount} negatif, {sentiment.neutralCount} nötr
+          </span>
+        </div>
+      )}
 
       {isLoading && (
         <div className="rounded-xl border border-border bg-card p-8 text-center">

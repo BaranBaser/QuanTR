@@ -5,11 +5,58 @@
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+// @ts-ignore
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
     server: { entry: "server" },
+  },
+  vite: {
+    plugins: [
+      VitePWA({
+        registerType: "autoUpdate",
+        includeAssets: ["favicon.ico", "stockbear-logo.png"],
+        manifest: {
+          name: "stockbear — Yapay Zeka Destekli Hisse Analizi",
+          short_name: "stockbear",
+          description:
+            "Yapay zeka gücüyle hisse analizi, piyasa özeti, portföy takibi ve AI önerileri.",
+          theme_color: "#6d28d9",
+          background_color: "#0f172a",
+          display: "standalone",
+          orientation: "portrait-primary",
+          start_url: "/",
+          icons: [
+            {
+              src: "/stockbear-logo.png",
+              sizes: "192x192",
+              type: "image/png",
+            },
+            {
+              src: "/stockbear-logo.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "any maskable",
+            },
+          ],
+        },
+        workbox: {
+          globPatterns: [
+            "**/*.{js,css,html,ico,png,svg,woff,woff2}",
+          ],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/query1\.finance\.yahoo\.com\/.*/i,
+              handler: "NetworkFirst",
+              options: {
+                cacheName: "yahoo-finance",
+                expiration: { maxEntries: 50, maxAgeSeconds: 300 },
+              },
+            },
+          ],
+        },
+      }),
+    ],
   },
 });

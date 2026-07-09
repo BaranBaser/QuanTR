@@ -1,9 +1,113 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, PageHeader } from "@/components/AppShell";
-import { User, Bell, Shield, Palette, Check, Sun, Moon } from "lucide-react";
+import { User, Bell, Shield, Palette, Check, Sun, Moon, LogOut, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/ayarlar")({ component: SettingsPage });
+
+interface StockBearUser {
+  name: string;
+  email: string;
+}
+
+function AccountSection() {
+  const [user, setUser] = useState<StockBearUser | null>(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    const raw = localStorage.getItem("stockbear.user");
+    if (raw) try { setUser(JSON.parse(raw)); } catch {}
+  }, []);
+
+  const login = () => {
+    if (!name.trim() || !email.trim()) return;
+    const u = { name: name.trim(), email: email.trim() };
+    localStorage.setItem("stockbear.user", JSON.stringify(u));
+    setUser(u);
+  };
+
+  const demoLogin = () => {
+    const u = { name: "Demo Kullanıcı", email: "demo@stockbear.app" };
+    localStorage.setItem("stockbear.user", JSON.stringify(u));
+    setUser(u);
+  };
+
+  const logout = () => {
+    localStorage.removeItem("stockbear.user");
+    setUser(null);
+    setName("");
+    setEmail("");
+  };
+
+  const deleteAccount = () => {
+    localStorage.removeItem("stockbear.user");
+    localStorage.removeItem("stockbear.profile");
+    localStorage.removeItem("stockbear.notify");
+    setUser(null);
+    setName("");
+    setEmail("");
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+      <h3 className="font-semibold text-lg flex items-center gap-2">
+        <User className="w-5 h-5" /> Kullanıcı Hesabı
+      </h3>
+
+      {!user ? (
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground">Ad</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Adınız"
+              className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">E-posta</label>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ornek@email.com"
+              className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={login} className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium hover:bg-primary/90">
+              Giriş Yap
+            </button>
+            <button onClick={demoLogin} className="bg-secondary border border-border rounded-lg px-4 py-2 text-sm font-medium hover:bg-secondary/80">
+              Demo Olarak Devam Et
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xl">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div className="font-medium">{user.name}</div>
+              <div className="text-sm text-muted-foreground">{user.email}</div>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={logout} className="flex items-center gap-2 bg-secondary border border-border rounded-lg px-4 py-2 text-sm font-medium hover:bg-secondary/80">
+              <LogOut className="w-4 h-4" /> Çıkış Yap
+            </button>
+            <button onClick={deleteAccount} className="flex items-center gap-2 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg px-4 py-2 text-sm font-medium hover:bg-destructive/20">
+              <Trash2 className="w-4 h-4" /> Hesap Sil
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SettingsPage() {
   const [tab, setTab] = useState<"profile" | "notifications" | "appearance">("profile");
@@ -49,6 +153,8 @@ function SettingsPage() {
   return (
     <AppShell>
       <PageHeader title="Ayarlar" subtitle="Hesabınızı ve tercihlerinizi yönetin." />
+
+      <AccountSection />
 
       <div className="grid lg:grid-cols-4 gap-4">
         <nav className="rounded-xl border border-border bg-card p-2 h-fit">

@@ -66,3 +66,29 @@ export function useAlarms() {
   };
   return { alarms, add, remove, toggle, check };
 }
+
+type AlarmHistoryEntry = {
+  id: string;
+  symbol: string;
+  type: "above" | "below";
+  targetPrice: number;
+  triggeredPrice: number;
+  triggeredAt: string;
+};
+
+const AHKEY = "stockbear.alarmHistory";
+
+export function useAlarmHistory() {
+  const [entries, setEntries] = useState<AlarmHistoryEntry[]>([]);
+  useEffect(() => {
+    const raw = localStorage.getItem(AHKEY);
+    if (raw) try { setEntries(JSON.parse(raw)); } catch {}
+  }, []);
+  const save = (next: AlarmHistoryEntry[]) => { setEntries(next); localStorage.setItem(AHKEY, JSON.stringify(next)); };
+  const add = (entry: Omit<AlarmHistoryEntry, "id">) => {
+    const newEntry: AlarmHistoryEntry = { ...entry, id: Date.now().toString(36) };
+    save([newEntry, ...entries].slice(0, 100));
+  };
+  const clear = () => save([]);
+  return { entries, add, clear };
+}

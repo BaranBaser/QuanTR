@@ -2,6 +2,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   Home, LineChart, BarChart3, Sparkles, Filter, Briefcase, Star,
   Beaker, Newspaper, CalendarDays, Settings, Search, Bell, Sun, Moon, ArrowRight, Menu, X, BellRing,
+  CandlestickChart, GitCompareArrows, FileText,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import logo from "@/assets/stockbear-logo.png";
@@ -19,7 +20,10 @@ const nav = [
   { icon: BellRing, label: "Alarmlar", to: "/alarm" },
   { icon: Beaker, label: "Simülasyon", to: "/simulasyon" },
   { icon: Newspaper, label: "Haberler", to: "/haberler" },
+  { icon: FileText, label: "Rapor Üretici", to: "/rapor" },
   { icon: CalendarDays, label: "Ekonomik Takvim", to: "/takvim" },
+  { icon: CandlestickChart, label: "Teknik Grafik", to: "/grafik" },
+  { icon: GitCompareArrows, label: "Karşılaştır", to: "/karsilastir" },
   { icon: Settings, label: "Ayarlar", to: "/ayarlar" },
 ] as const;
 

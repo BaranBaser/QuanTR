@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell, PageHeader } from "@/components/AppShell";
-import { useAlarms } from "@/lib/storage";
+import { useAlarms, useAlarmHistory } from "@/lib/storage";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchSingleStock } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ export const Route = createFileRoute("/alarm")({ component: AlarmPage });
 
 function AlarmPage() {
   const { alarms, add, remove, toggle } = useAlarms();
+  const { entries: alarmHistory, add: addHistory, clear: clearHistory } = useAlarmHistory();
   const [form, setForm] = useState({ symbol: "", type: "above" as "above" | "below", targetPrice: "" });
   const fetchSingle = useServerFn(fetchSingleStock);
   const [notifPermission, setNotifPermission] = useState<typeof Notification.permission>("default");
@@ -67,6 +68,13 @@ function AlarmPage() {
           `stockbear Alarm: ${alarm.symbol}`,
           `${alarm.symbol} fiyatı ${price.toFixed(2)} ₺ — Hedef: ${alarm.type === "above" ? "Üzeri" : "Altı"} ${alarm.targetPrice.toFixed(2)} ₺`
         );
+        addHistory({
+          symbol: alarm.symbol,
+          type: alarm.type,
+          targetPrice: alarm.targetPrice,
+          triggeredPrice: price,
+          triggeredAt: new Date().toISOString(),
+        });
       }
     }
   }, [livePrices, alarms]);
@@ -213,6 +221,70 @@ function AlarmPage() {
           <p className="text-sm text-muted-foreground">Henüz alarm eklenmemiş. Yukarıdan bir hisse için alarm ekleyin.</p>
         </div>
       )}
+
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="font-semibold text-sm flex items-center gap-2">
+            <BellRing className="w-4 h-4 text-primary" />
+            Alarm Geçmişi
+          </h3>
+          {alarmHistory.length > 0 && (
+            <button onClick={clearHistory} className="text-xs text-muted-foreground hover:text-destructive">Temizle</button>
+          )}
+        </div>
+        {alarmHistory.length > 0 && (() => {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const recentCount = alarmHistory.filter(e => new Date(e.triggeredAt) >= thirtyDaysAgo).length;
+          return (
+            <div className="px-4 py-2 border-b border-border flex flex-wrap gap-4 text-xs text-muted-foreground">
+              <span>Son 30 günde <strong className="text-foreground">{recentCount}</strong> alarm tetiklendi</span>
+              <span>Tetikleme oranı: <strong className="text-foreground">{alarms.length > 0 ? Math.round((alarmHistory.length / Math.max(alarms.length, 1)) * 100) : 0}%</strong></span>
+            </div>
+          );
+        })()}
+        {alarmHistory.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">Henüz tetiklenen alarm yok.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-muted-foreground border-b border-border">
+                  <th className="text-left px-4 py-2 font-medium">Tarih</th>
+                  <th className="text-left px-4 py-2 font-medium">Hisse</th>
+                  <th className="text-left px-4 py-2 font-medium">Tür</th>
+                  <th className="text-right px-4 py-2 font-medium">Hedef</th>
+                  <th className="text-right px-4 py-2 font-medium">Tetiklenen</th>
+                  <th className="text-right px-4 py-2 font-medium">Fark</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {alarmHistory.slice(0, 20).map((entry) => {
+                  const diff = entry.triggeredPrice - entry.targetPrice;
+                  const isProfit = entry.type === "above" ? diff >= 0 : diff <= 0;
+                  return (
+                    <tr key={entry.id} className="hover:bg-secondary/40">
+                      <td className="px-4 py-2 text-muted-foreground">{new Date(entry.triggeredAt).toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "2-digit" })} {new Date(entry.triggeredAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</td>
+                      <td className="px-4 py-2 font-semibold">{entry.symbol}</td>
+                      <td className="px-4 py-2">
+                        <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${entry.type === "above" ? "bg-[color:var(--success)]/10 text-[color:var(--success)]" : "bg-destructive/10 text-destructive"}`}>
+                          {entry.type === "above" ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                          {entry.type === "above" ? "Üzeri" : "Altı"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-right">{entry.targetPrice.toFixed(2)} ₺</td>
+                      <td className="px-4 py-2 text-right font-medium">{entry.triggeredPrice.toFixed(2)} ₺</td>
+                      <td className={`px-4 py-2 text-right font-medium ${isProfit ? "text-[color:var(--success)]" : "text-destructive"}`}>
+                        {diff >= 0 ? "+" : ""}{diff.toFixed(2)} ₺
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <div className="rounded-xl border border-border bg-card p-4 text-center text-xs text-muted-foreground">
         Alarmlar localStorage'da saklanır. Canlı fiyatlar Yahoo Finance tarafından sağlanır.

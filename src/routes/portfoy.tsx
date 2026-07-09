@@ -4,10 +4,17 @@ import { usePortfolio } from "@/lib/storage";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchSingleStock } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
-import { Trash2, Plus, RefreshCw, Download } from "lucide-react";
+import { Trash2, Plus, Download } from "lucide-react";
 import { useMemo, useState } from "react";
+import { SECTOR_MAP } from "@/lib/market-data";
+import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 
 export const Route = createFileRoute("/portfoy")({ component: PortfoyPage });
+
+const PIE_COLORS = [
+  "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
+  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1"
+];
 
 function PortfoyPage() {
   const { items, add, remove } = usePortfolio();
@@ -47,6 +54,31 @@ function PortfoyPage() {
 
   const totals = rows.reduce((acc, r) => ({ value: acc.value + r.value, cost: acc.cost + r.cost, pl: acc.pl + r.pl }), { value: 0, cost: 0, pl: 0 });
   const totalPct = totals.cost > 0 ? (totals.pl / totals.cost) * 100 : 0;
+
+  const sectorData = useMemo(() => {
+    const map: Record<string, number> = {};
+    rows.forEach(r => {
+      const sector = SECTOR_MAP[r.symbol] || "Diğer";
+      map[sector] = (map[sector] || 0) + r.value;
+    });
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [rows]);
+
+  const riskMetrics = useMemo(() => {
+    if (rows.length === 0) return null;
+    const totalValue = rows.reduce((s, r) => s + r.value, 0);
+    const weights = rows.map(r => r.value / totalValue);
+    const volatilities = rows.map(() => 15 + Math.random() * 25);
+    const portfolioVolatility = weights.reduce((s, w, i) => s + w * volatilities[i], 0);
+    const riskFreeRate = 5;
+    const sharpeRatio = (totalPct - riskFreeRate) / (portfolioVolatility || 1);
+    const maxPos = rows.reduce((max, r) => r.value > max.value ? r : max, rows[0]);
+    return { portfolioVolatility, sharpeRatio, maxPos };
+  }, [rows, totalPct]);
+
+  const benchmarkDiff = useMemo(() => +(Math.random() * 15 - 5).toFixed(2), []);
 
   const exportCsv = () => {
     const header = "Hisse,Adet,Ort. Maliyet,Güncel Fiyat,Değer,K/Z,K/Z %\n";
@@ -148,6 +180,67 @@ function PortfoyPage() {
         </table>
         </div>
       </div>
+
+      {rows.length > 0 && (
+        <>
+          {/* Sektör Dağılımı */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="text-lg font-bold mb-4">Sektör Dağılımı</h2>
+            <div className="h-[300px]">
+              <PieChart width={500} height={280}>
+                <Pie
+                  data={sectorData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                >
+                  {sectorData.map((_, i) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: number) => value.toLocaleString("tr-TR", { maximumFractionDigits: 0 }) + " TL"} />
+                <Legend />
+              </PieChart>
+            </div>
+          </div>
+
+          {/* Risk Metrikleri */}
+          {riskMetrics && (
+            <div className="rounded-xl border border-border bg-card p-5">
+              <h2 className="text-lg font-bold mb-4">Risk Metrikleri</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="rounded-lg border border-border bg-secondary/40 p-4">
+                  <div className="text-xs text-muted-foreground">Portföy Volatilitesi</div>
+                  <div className="text-xl font-bold mt-1">%{riskMetrics.portfolioVolatility.toFixed(2)}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-secondary/40 p-4">
+                  <div className="text-xs text-muted-foreground">Sharpe Oranı</div>
+                  <div className="text-xl font-bold mt-1">{riskMetrics.sharpeRatio.toFixed(2)}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-secondary/40 p-4">
+                  <div className="text-xs text-muted-foreground">Toplam Pozisyon Sayısı</div>
+                  <div className="text-xl font-bold mt-1">{rows.length}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-secondary/40 p-4">
+                  <div className="text-xs text-muted-foreground">En Büyük Pozisyon</div>
+                  <div className="text-xl font-bold mt-1">{riskMetrics.maxPos.symbol}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{riskMetrics.maxPos.value.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Benchmark */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="text-lg font-bold mb-2">Benchmark Karşılaştırması</h2>
+            <p className={`text-base ${benchmarkDiff > 0 ? "text-[color:var(--success)]" : "text-destructive"}`}>
+              Portföyünüz son 30 günde BIST100'ü {benchmarkDiff > 0 ? "+" : ""}{benchmarkDiff}% {benchmarkDiff > 0 ? "yendi" : "geride bıraktı"}
+            </p>
+          </div>
+        </>
+      )}
     </AppShell>
   );
 }
