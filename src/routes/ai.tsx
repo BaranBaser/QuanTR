@@ -17,64 +17,108 @@ function BacktestSection({ symbol }: { symbol: string }) {
   const { data: historyData, isLoading: historyLoading } = useQuery({
     queryKey: ["backtest-history", symbol],
     queryFn: async () => {
-      try { return await fetchHistory({ data: { symbol, range: "6mo" } }); } catch { return []; }
+      try { return await fetchHistory({ data: { symbol, range: "1y" } }); } catch { return []; }
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: engineResult, isLoading: engineLoading } = useQuery({
-    queryKey: ["backtest-engine", symbol],
+  const { data: walkForwardData, isLoading: engineLoading } = useQuery({
+    queryKey: ["backtest-walkforward", symbol],
     queryFn: async () => {
-      if (!historyData || historyData.length < 30) return null;
-      try { return await runAIEngine(historyData, symbol, historyData.length); } catch { return null; }
+      if (!historyData || historyData.length < 60) return null;
+      try {
+        const closes = historyData.map((d: any) => d.close);
+        const horizon = 5;
+        const testPoints = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+          .map((p) => Math.floor(closes.length * p))
+          .filter((i) => i + horizon < closes.length);
+
+        const results = await Promise.all(
+          testPoints.map(async (idx) => {
+            const slice = historyData.slice(0, idx + 1);
+            const result = await runAIEngine(slice, symbol, slice.length);
+            const actual = closes[idx + horizon];
+            const predicted5d = result.predictions.find((p) => p.horizonDays === 5);
+            return {
+              date: historyData[idx].date,
+              actualAtHorizon: actual,
+              predicted: predicted5d?.expectedPrice ?? closes[idx],
+              lowerBand: predicted5d?.lowerBand ?? closes[idx],
+              upperBand: predicted5d?.upperBand ?? closes[idx],
+              confidence: predicted5d?.confidence ?? 50,
+            };
+          })
+        );
+        return results;
+      } catch { return null; }
     },
-    enabled: !!historyData && historyData.length >= 30,
+    enabled: !!historyData && historyData.length >= 60,
     staleTime: 5 * 60 * 1000,
   });
 
   const chartData = useMemo(() => {
-    if (!historyData || historyData.length === 0) return [];
-    const closes = historyData.map((d: any) => d.close);
-    const predictions: number[] = [];
-    if (engineResult?.predictions) {
-      const horizon = engineResult.predictions[0];
-      if (horizon?.expectedPrice && horizon?.expectedReturnPercent !== undefined) {
-        const returnPct = horizon.expectedReturnPercent / 100;
-        for (let i = 0; i < closes.length; i++) {
-          const shift = closes.length - i;
-          predictions.push(horizon.expectedPrice / Math.pow(1 + returnPct / horizon.horizonDays, shift));
-        }
-      }
+    if (!historyData || !walkForwardData || walkForwardData.length === 0) {
+      if (!historyData) return [];
+      return historyData.map((d: any) => ({
+        date: new Date(d.date).toLocaleDateString("tr-TR", { month: "short", day: "numeric" }),
+        actual: +Number(d.close).toFixed(2),
+        predicted: null,
+        lowerBand: null,
+        upperBand: null,
+      }));
     }
-    return historyData.map((d: any, i: number) => ({
-      date: new Date(d.date).toLocaleDateString("tr-TR", { month: "short", day: "numeric" }),
-      actual: +Number(closes[i]).toFixed(2),
-      predicted: predictions[i] ? +Number(predictions[i]).toFixed(2) : null,
-    }));
-  }, [historyData, engineResult]);
+
+    const closes = historyData.map((d: any) => d.close);
+    const predictedMap = new Map<string, typeof walkForwardData[0]>();
+    for (const p of walkForwardData) {
+      const key = new Date(p.date).toLocaleDateString("tr-TR", { month: "short", day: "numeric" });
+      predictedMap.set(key, p);
+    }
+
+    return historyData.map((d: any) => {
+      const dateStr = new Date(d.date).toLocaleDateString("tr-TR", { month: "short", day: "numeric" });
+      const wp = predictedMap.get(dateStr);
+      return {
+        date: dateStr,
+        actual: +Number(d.close).toFixed(2),
+        predicted: wp ? +Number(wp.predicted).toFixed(2) : null,
+        lowerBand: wp ? +Number(wp.lowerBand).toFixed(2) : null,
+        upperBand: wp ? +Number(wp.upperBand).toFixed(2) : null,
+      };
+    });
+  }, [historyData, walkForwardData]);
 
   const metrics = useMemo(() => {
-    if (chartData.length < 2) return { accuracy: 0, cumulativeReturn: 0 };
+    if (!walkForwardData || walkForwardData.length < 2) return { accuracy: 0, cumulativeReturn: 0, avgConfidence: 0 };
     let matchCount = 0;
-    for (let i = 1; i < chartData.length; i++) {
-      const actualDir = chartData[i].actual - chartData[i - 1].actual;
-      const predDir = (chartData[i].predicted ?? chartData[i].actual) - (chartData[i - 1].predicted ?? chartData[i - 1].actual);
+    let totalConfidence = 0;
+    for (const point of walkForwardData) {
+      const currentIdx = historyData!.findIndex((d: any) => d.date === point.date);
+      if (currentIdx < 0) continue;
+      const currentPrice = historyData![currentIdx].close;
+      const actualDir = point.actualAtHorizon - currentPrice;
+      const predDir = point.predicted - currentPrice;
       if ((actualDir >= 0 && predDir >= 0) || (actualDir < 0 && predDir < 0)) matchCount++;
+      totalConfidence += point.confidence;
     }
-    const accuracy = (matchCount / (chartData.length - 1)) * 100;
-    const cumulativeReturn = ((chartData[chartData.length - 1].actual - chartData[0].actual) / chartData[0].actual) * 100;
-    return { accuracy, cumulativeReturn };
-  }, [chartData]);
+    const accuracy = (matchCount / walkForwardData.length) * 100;
+    const cumulativeReturn = ((historyData![historyData!.length - 1].close - historyData![0].close) / historyData![0].close) * 100;
+    const avgConfidence = totalConfidence / walkForwardData.length;
+    return { accuracy, cumulativeReturn, avgConfidence };
+  }, [walkForwardData, historyData]);
 
   const isLoading = historyLoading || engineLoading;
 
   return (
     <div className="bg-card border border-border p-5 rounded-xl shadow-sm">
       <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-        <TrendingUp className="w-5 h-5 text-primary" /> Son 6 Ay Backtest
+        <TrendingUp className="w-5 h-5 text-primary" /> Walk-Forward Backtest (Son 1 Ay Tahminleri)
       </h2>
+      <p className="text-xs text-muted-foreground mb-4">
+        Motor her 5 günde bir geçmişe bakarak 5 gün sonraki fiyatı tahmin etti. Gerçek fiyatla karşılaştırıldı.
+      </p>
       {isLoading ? (
-        <div className="text-muted-foreground animate-pulse text-sm">Geçmiş veriler yükleniyor ve backtest çalıştırılıyor...</div>
+        <div className="text-muted-foreground animate-pulse text-sm">Walk-forward backtest çalıştırılıyor... (10 farklı zaman dilimi test ediliyor)</div>
       ) : chartData.length === 0 ? (
         <div className="text-muted-foreground text-sm">Backtest verisi oluşturulamadı.</div>
       ) : (
@@ -88,20 +132,25 @@ function BacktestSection({ symbol }: { symbol: string }) {
                 <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} />
                 <Legend />
                 <Line type="monotone" dataKey="actual" stroke="#3b82f6" strokeWidth={2} dot={false} name="Gerçek Fiyat" />
-                <Line type="monotone" dataKey="predicted" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 5" name="ML Tahmini" />
+                <Line type="monotone" dataKey="predicted" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 5" name="ML Tahmini (5G)" />
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="rounded-lg border border-border bg-secondary/40 p-4">
-              <div className="text-xs text-muted-foreground">Doğruluk Oranı</div>
+              <div className="text-xs text-muted-foreground">Yön Doğruluk Oranı</div>
               <div className="text-xl font-bold mt-1">%{metrics.accuracy.toFixed(1)}</div>
+              <div className="text-[10px] text-muted-foreground mt-1">{walkForwardData?.length || 0} test noktası</div>
             </div>
             <div className="rounded-lg border border-border bg-secondary/40 p-4">
               <div className="text-xs text-muted-foreground">Kümülatif Getiri</div>
               <div className={`text-xl font-bold mt-1 ${metrics.cumulativeReturn >= 0 ? "text-[color:var(--success)]" : "text-destructive"}`}>
                 {metrics.cumulativeReturn >= 0 ? "+" : ""}{metrics.cumulativeReturn.toFixed(2)}%
               </div>
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/40 p-4">
+              <div className="text-xs text-muted-foreground">Ort. Güven Skoru</div>
+              <div className="text-xl font-bold mt-1">%{metrics.avgConfidence.toFixed(1)}</div>
             </div>
           </div>
         </>

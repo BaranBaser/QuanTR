@@ -1,6 +1,8 @@
 // ml.engine.ts
 // Kapsamlı Algoritmik ve Matematiksel Karar Motoru (LLM veya dış API kullanılmaz)
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 export type MLModelName = "LinearRegression" | "MomentumExtrapolation" | "MeanReversion" | "EMA_Projection";
 
 export interface ModelPrediction {
@@ -11,7 +13,7 @@ export interface ModelPrediction {
 }
 
 export interface HorizonPrediction {
-  horizonDays: number; // 1, 3, 5, 10, 20 vb.
+  horizonDays: number;
   expectedPrice: number;
   lowerBand: number;
   upperBand: number;
@@ -35,28 +37,51 @@ export interface EngineResult {
     macdSignal: number;
     sma20: number;
     sma50: number;
+    stochastic: { k: number; d: number };
+    adx: number;
+    cci: number;
+    obv: number;
+    vwap: number;
+    atr: number;
   };
+  regime: "TRENDING_UP" | "TRENDING_DOWN" | "RANGING" | "HIGH_VOLATILITY";
+  riskManagement: {
+    suggestedStopLoss: number;
+    suggestedTakeProfit: number;
+    suggestedPositionSize: number;
+    riskRewardRatio: number;
+  };
+  supportLevels: number[];
+  resistanceLevels: number[];
 }
 
-// Temel İndikatörler
-export function calcRSI(closes: number[], period = 14): number {
-  if (closes.length < period + 1) return 50;
-  let gains = 0, losses = 0;
-  for (let i = closes.length - period; i < closes.length; i++) {
-    const diff = closes[i] - closes[i - 1];
-    if (diff > 0) gains += diff; else losses -= diff;
-  }
-  if (losses === 0) return 100;
-  if (gains === 0) return 0;
-  const rs = gains / losses;
-  return 100 - (100 / (1 + rs));
+export interface SimpleTechnicalResult {
+  decision: "AL" | "SAT" | "BEKLE";
+  rawScore: number;
+  currentPrice: number;
 }
 
+// ─── Volatility (canonical) ──────────────────────────────────────────────────
+
+/** Compute annualized volatility from daily closes (%). */
+export function calcVolatility(closes: number[]): number {
+  if (closes.length < 2) return 0;
+  const slice = closes.slice(-Math.min(60, closes.length));
+  const mean = slice.reduce((a, b) => a + b, 0) / slice.length;
+  const variance = slice.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / slice.length;
+  const dailyStd = Math.sqrt(variance);
+  return mean > 0 ? (dailyStd / mean) * 100 : 0;
+}
+
+// ─── Core Indicators ─────────────────────────────────────────────────────────
+
+/** Simple Moving Average */
 export function calcSMA(closes: number[], period: number): number {
   if (closes.length < period) return closes[closes.length - 1] || 0;
   return closes.slice(-period).reduce((a, b) => a + b, 0) / period;
 }
 
+/** Exponential Moving Average */
 export function calcEMA(closes: number[], period: number): number {
   if (closes.length < period) return closes[closes.length - 1] || 0;
   const k = 2 / (period + 1);
@@ -67,6 +92,30 @@ export function calcEMA(closes: number[], period: number): number {
   return ema;
 }
 
+/** RSI using Wilder's exponential smoothing */
+export function calcRSI(closes: number[], period = 14): number {
+  if (closes.length < period + 1) return 50;
+  let avgGain = 0;
+  let avgLoss = 0;
+  for (let i = 1; i <= period; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff > 0) avgGain += diff; else avgLoss -= diff;
+  }
+  avgGain /= period;
+  avgLoss /= period;
+  for (let i = period + 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    const gain = diff > 0 ? diff : 0;
+    const loss = diff < 0 ? -diff : 0;
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+  }
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - (100 / (1 + rs));
+}
+
+/** Bollinger Bands */
 export function calcBollinger(closes: number[], period = 20): { upper: number; middle: number; lower: number } {
   const middle = calcSMA(closes, period);
   if (closes.length < period) return { upper: middle * 1.02, middle, lower: middle * 0.98 };
@@ -76,30 +125,264 @@ export function calcBollinger(closes: number[], period = 20): { upper: number; m
   return { upper: middle + 2 * std, middle, lower: middle - 2 * std };
 }
 
-export function findSupportResistance(closes: number[]): { supports: number[]; resistances: number[] } {
-  if (closes.length < 10) return { supports: [], resistances: [] };
-  const recent = closes.slice(-30);
-  const min = Math.min(...recent);
-  const max = Math.max(...recent);
-  const range = max - min;
-  const supports = [min, min + range * 0.2, min + range * 0.382];
-  const resistances = [max, max - range * 0.2, max - range * 0.382];
-  return {
-    supports: supports.filter((s) => s < closes[closes.length - 1]),
-    resistances: resistances.filter((r) => r > closes[closes.length - 1]),
-  };
-}
-
+/** MACD (signal = EMA9 of MACD line, not of raw prices) */
 export function calcMACD(closes: number[]): { macd: number; signal: number; hist: number } {
-  const ema12 = calcEMA(closes, 12);
-  const ema26 = calcEMA(closes, 26);
-  const macd = ema12 - ema26;
-  const recentCloses = closes.slice(-9);
-  const signal = recentCloses.length > 0 ? calcEMA(recentCloses, 9) : macd;
+  const ema12Series: number[] = [];
+  const macdSeries: number[] = [];
+  const k12 = 2 / 13;
+  const k26 = 2 / 27;
+  let ema12 = closes.slice(0, 12).reduce((a, b) => a + b, 0) / 12;
+  let ema26 = closes.slice(0, 26).reduce((a, b) => a + b, 0) / 26;
+
+  for (let i = 0; i < closes.length; i++) {
+    if (i >= 12) ema12 = closes[i] * k12 + ema12 * (1 - k12);
+    if (i >= 26) ema26 = closes[i] * k26 + ema26 * (1 - k26);
+    ema12Series.push(ema12);
+    macdSeries.push(ema12 - ema26);
+  }
+
+  // Signal line = EMA9 of MACD series
+  const signalK = 2 / 10;
+  let signal = macdSeries.slice(0, 9).reduce((a, b) => a + b, 0) / 9;
+  for (let i = 9; i < macdSeries.length; i++) {
+    signal = macdSeries[i] * signalK + signal * (1 - signalK);
+  }
+
+  const macd = macdSeries[macdSeries.length - 1] || 0;
   return { macd, signal, hist: macd - signal };
 }
 
-// Tahmin Modelleri
+/** Stochastic Oscillator: %K = (Close-LowN)/(HighN-LowN)*100, %D = SMA3(%K) */
+export function calcStochastic(
+  closes: number[],
+  highs: number[],
+  lows: number[],
+  kPeriod = 14,
+  dPeriod = 3,
+): { k: number; d: number } {
+  if (closes.length < kPeriod) return { k: 50, d: 50 };
+  const kValues: number[] = [];
+  for (let i = kPeriod - 1; i < closes.length; i++) {
+    let highMax = -Infinity;
+    let lowMin = Infinity;
+    for (let j = i - kPeriod + 1; j <= i; j++) {
+      if (highs[j] > highMax) highMax = highs[j];
+      if (lows[j] < lowMin) lowMin = lows[j];
+    }
+    const range = highMax - lowMin;
+    kValues.push(range === 0 ? 50 : ((closes[i] - lowMin) / range) * 100);
+  }
+  const k = kValues[kValues.length - 1] || 50;
+  const d = kValues.length >= dPeriod
+    ? kValues.slice(-dPeriod).reduce((a, b) => a + b, 0) / dPeriod
+    : k;
+  return { k, d };
+}
+
+/** Average True Range (Wilder's smoothing) */
+export function calcATR(
+  closes: number[],
+  highs: number[],
+  lows: number[],
+  period = 14,
+): number {
+  if (closes.length < 2) return 0;
+  const trs: number[] = [];
+  for (let i = 1; i < closes.length; i++) {
+    const tr = Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i - 1]),
+      Math.abs(lows[i] - closes[i - 1]),
+    );
+    trs.push(tr);
+  }
+  if (trs.length < period) return trs.reduce((a, b) => a + b, 0) / trs.length || 0;
+  let atr = trs.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < trs.length; i++) {
+    atr = (atr * (period - 1) + trs[i]) / period;
+  }
+  return atr;
+}
+
+/** Average Directional Index */
+export function calcADX(
+  closes: number[],
+  highs: number[],
+  lows: number[],
+  period = 14,
+): number {
+  if (closes.length < period + 1) return 25;
+  const trueRanges: number[] = [];
+  const plusDMs: number[] = [];
+  const minusDMs: number[] = [];
+
+  for (let i = 1; i < closes.length; i++) {
+    trueRanges.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
+    const upMove = highs[i] - highs[i - 1];
+    const downMove = lows[i - 1] - lows[i];
+    plusDMs.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDMs.push(downMove > upMove && downMove > 0 ? downMove : 0);
+  }
+
+  if (trueRanges.length < period) return 25;
+
+  // Wilder smoothing
+  let smoothedTR = trueRanges.slice(0, period).reduce((a, b) => a + b, 0);
+  let smoothedPlusDM = plusDMs.slice(0, period).reduce((a, b) => a + b, 0);
+  let smoothedMinusDM = minusDMs.slice(0, period).reduce((a, b) => a + b, 0);
+
+  const dxValues: number[] = [];
+
+  for (let i = period; i < trueRanges.length; i++) {
+    smoothedTR = smoothedTR - smoothedTR / period + trueRanges[i];
+    smoothedPlusDM = smoothedPlusDM - smoothedPlusDM / period + plusDMs[i];
+    smoothedMinusDM = smoothedMinusDM - smoothedMinusDM / period + minusDMs[i];
+
+    const plusDI = smoothedTR > 0 ? (smoothedPlusDM / smoothedTR) * 100 : 0;
+    const minusDI = smoothedTR > 0 ? (smoothedMinusDM / smoothedTR) * 100 : 0;
+    const diSum = plusDI + minusDI;
+    dxValues.push(diSum === 0 ? 0 : (Math.abs(plusDI - minusDI) / diSum) * 100);
+  }
+
+  if (dxValues.length < period) return dxValues.length > 0 ? dxValues[dxValues.length - 1] : 25;
+  let adx = dxValues.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < dxValues.length; i++) {
+    adx = (adx * (period - 1) + dxValues[i]) / period;
+  }
+  return adx;
+}
+
+/** Commodity Channel Index */
+export function calcCCI(
+  closes: number[],
+  highs: number[],
+  lows: number[],
+  period = 20,
+): number {
+  if (closes.length < period) return 0;
+  const tpArr: number[] = [];
+  for (let i = 0; i < closes.length; i++) {
+    tpArr.push((highs[i] + lows[i] + closes[i]) / 3);
+  }
+  const slice = tpArr.slice(-period);
+  const sma = slice.reduce((a, b) => a + b, 0) / period;
+  const meanDev = slice.reduce((a, v) => a + Math.abs(v - sma), 0) / period;
+  if (meanDev === 0) return 0;
+  return (tpArr[tpArr.length - 1] - sma) / (0.015 * meanDev);
+}
+
+/** On-Balance Volume */
+export function calcOBV(closes: number[], volumes: number[]): number {
+  if (closes.length < 2) return 0;
+  let obv = 0;
+  for (let i = 1; i < closes.length; i++) {
+    if (closes[i] > closes[i - 1]) obv += volumes[i];
+    else if (closes[i] < closes[i - 1]) obv -= volumes[i];
+  }
+  return obv;
+}
+
+/** Volume Weighted Average Price */
+export function calcVWAP(
+  closes: number[],
+  volumes: number[],
+  highs: number[],
+  lows: number[],
+): number {
+  if (closes.length === 0) return 0;
+  let cumPV = 0;
+  let cumV = 0;
+  for (let i = 0; i < closes.length; i++) {
+    const tp = (highs[i] + lows[i] + closes[i]) / 3;
+    cumPV += tp * volumes[i];
+    cumV += volumes[i];
+  }
+  return cumV > 0 ? cumPV / cumV : closes[closes.length - 1];
+}
+
+// ─── Support / Resistance (swing-point detection) ────────────────────────────
+
+/** Detect support and resistance levels using swing points with Fibonacci fallback */
+export function findSupportResistance(closes: number[]): { supports: number[]; resistances: number[] } {
+  if (closes.length < 20) return { supports: [], resistances: [] };
+
+  const swingLows: number[] = [];
+  const swingHighs: number[] = [];
+  const lookback = 5;
+
+  for (let i = lookback; i < closes.length - lookback; i++) {
+    let isSwingLow = true;
+    let isSwingHigh = true;
+    for (let j = i - lookback; j <= i + lookback; j++) {
+      if (j === i) continue;
+      if (closes[j] <= closes[i]) isSwingLow = false;
+      if (closes[j] >= closes[i]) isSwingHigh = false;
+    }
+    if (isSwingLow) swingLows.push(closes[i]);
+    if (isSwingHigh) swingHighs.push(closes[i]);
+  }
+
+  const currentPrice = closes[closes.length - 1];
+
+  const supports = swingLows
+    .filter((s) => s < currentPrice)
+    .sort((a, b) => b - a)
+    .slice(0, 3);
+
+  const resistances = swingHighs
+    .filter((r) => r > currentPrice)
+    .sort((a, b) => a - b)
+    .slice(0, 3);
+
+  // Fallback: Fibonacci retracements
+  if (supports.length < 3) {
+    const recent = closes.slice(-60);
+    const min = Math.min(...recent);
+    const max = Math.max(...recent);
+    const range = max - min;
+    for (const fib of [0.236, 0.382, 0.5, 0.618, 0.786]) {
+      const level = currentPrice - range * fib;
+      if (level < currentPrice && !supports.includes(level)) {
+        supports.push(level);
+        if (supports.length >= 3) break;
+      }
+    }
+  }
+  if (resistances.length < 3) {
+    const recent = closes.slice(-60);
+    const min = Math.min(...recent);
+    const max = Math.max(...recent);
+    const range = max - min;
+    for (const fib of [0.786, 0.618, 0.5, 0.382, 0.236]) {
+      const level = currentPrice + range * fib;
+      if (level > currentPrice && !resistances.includes(level)) {
+        resistances.push(level);
+        if (resistances.length >= 3) break;
+      }
+    }
+  }
+
+  return { supports: supports.slice(0, 3), resistances: resistances.slice(0, 3) };
+}
+
+// ─── Regime Detection ────────────────────────────────────────────────────────
+
+/** Detect market regime: trending up, trending down, ranging, or high volatility */
+export function detectRegime(
+  closes: number[],
+  volatility: number,
+): "TRENDING_UP" | "TRENDING_DOWN" | "RANGING" | "HIGH_VOLATILITY" {
+  if (volatility > 30) return "HIGH_VOLATILITY";
+  const sma20 = calcSMA(closes, 20);
+  const sma50 = calcSMA(closes, 50);
+  const slope = (sma20 - sma50) / sma50 * 100;
+  if (slope > 2) return "TRENDING_UP";
+  if (slope < -2) return "TRENDING_DOWN";
+  return "RANGING";
+}
+
+// ─── Prediction Models ───────────────────────────────────────────────────────
+
 function predictLinearRegression(closes: number[], horizon: number): number {
   const n = closes.length;
   if (n < 2) return closes[closes.length - 1] || 0;
@@ -110,7 +393,8 @@ function predictLinearRegression(closes: number[], horizon: number): number {
     sumXY += i * closes[i];
     sumX2 += i * i;
   }
-  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  const denom = n * sumX2 - sumX * sumX;
+  const slope = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
   const intercept = (sumY - slope * sumX) / n;
   return slope * (n - 1 + horizon) + intercept;
 }
@@ -119,8 +403,8 @@ function predictMomentum(closes: number[], horizon: number): number {
   if (closes.length < 10) return closes[closes.length - 1] || 0;
   const current = closes[closes.length - 1];
   const past = closes[closes.length - 10];
+  if (past <= 0) return current;
   const dailyRate = Math.pow(current / past, 1 / 10) - 1;
-  // Sönümlemeli momentum (aşırı uçuşları engellemek için)
   const dampedRate = dailyRate * 0.5;
   return current * Math.pow(1 + dampedRate, horizon);
 }
@@ -128,74 +412,132 @@ function predictMomentum(closes: number[], horizon: number): number {
 function predictMeanReversion(closes: number[], horizon: number): number {
   const current = closes[closes.length - 1] || 0;
   const sma50 = calcSMA(closes, 50);
-  // Fiyatın SMA50'ye yavaşça döneceğini varsayar
   const diff = sma50 - current;
-  const reversionRate = 0.1; // Günlük %10 kapanma
+  const reversionRate = 0.04; // 4% daily reversion (realistic)
   return current + diff * (1 - Math.pow(1 - reversionRate, horizon));
 }
 
 function predictEMAProjection(closes: number[], horizon: number): number {
-  const current = closes[closes.length - 1] || 0;
+  if (closes.length < 2) return closes[closes.length - 1] || 0;
   const ema10 = calcEMA(closes, 10);
   const ema20 = calcEMA(closes, 20);
   const diff = ema10 - ema20;
-  return current + diff * (horizon / 5);
+  // Exponential decay: converge toward EMA20
+  const decayRate = 0.05;
+  const convergence = 1 - Math.pow(1 - decayRate, horizon);
+  const current = closes[closes.length - 1];
+  return current + diff * convergence;
 }
 
-// Dinamik Backtest ve Ağırlıklandırma
-async function calculateEnsemblePrediction(closes: number[], horizon: number, pythonData?: any): Promise<HorizonPrediction> {
+// ─── Walk-Forward Backtest ────────────────────────────────────────────────────
+
+function predictEnsembleRaw(closes: number[], horizon: number): number {
+  const models = [predictLinearRegression, predictMomentum, predictMeanReversion, predictEMAProjection];
+  const weights = [0.25, 0.25, 0.25, 0.25];
+  let result = 0;
+  for (let i = 0; i < models.length; i++) {
+    result += models[i](closes, horizon) * weights[i];
+  }
+  return result;
+}
+
+async function walkForwardBacktest(
+  closes: number[],
+  horizon: number,
+): Promise<{ rmse: number; accuracy: number }> {
+  const testPoints = [0.6, 0.7, 0.8, 0.9, 0.95].map((p) => Math.floor(closes.length * p));
+  const validPoints = testPoints.filter((i) => i + horizon < closes.length);
+
+  let totalError = 0;
+  let correctDirection = 0;
+  let count = 0;
+
+  const fns = [predictLinearRegression, predictMomentum, predictMeanReversion, predictEMAProjection];
+  const defaultWeights = [0.25, 0.25, 0.25, 0.25];
+
+  for (const i of validPoints) {
+    const slice = closes.slice(0, i + 1);
+    const actual = closes[i + horizon];
+    const current = slice[slice.length - 1];
+
+    // Evaluate each model and compute inverse-RMSE weights on past data
+    const rmseArr: number[] = [];
+    for (const fn of fns) {
+      let err = 0;
+      let testCount = 0;
+      // Use a smaller sub-test within slice
+      const subPoints = [0.5, 0.65, 0.8].map((p) => Math.floor(slice.length * p));
+      for (const sp of subPoints) {
+        if (sp + horizon >= slice.length) continue;
+        const subSlice = slice.slice(0, sp + 1);
+        const subActual = slice[sp + horizon];
+        const subPred = fn(subSlice, horizon);
+        err += Math.abs(subPred - subActual) / subActual;
+        testCount++;
+      }
+      rmseArr.push(testCount > 0 ? err / testCount * 100 : 10);
+    }
+
+    // Weighted ensemble
+    const invRmse = rmseArr.map((r) => 1 / Math.max(r, 0.1));
+    const totalInv = invRmse.reduce((a, b) => a + b, 0);
+    const weights = invRmse.map((r) => r / totalInv);
+
+    let predicted = 0;
+    for (let m = 0; m < fns.length; m++) {
+      predicted += fns[m](slice, horizon) * weights[m];
+    }
+
+    totalError += Math.abs(predicted - actual) / actual;
+    if ((predicted > current) === (actual > current)) correctDirection++;
+    count++;
+  }
+
+  return {
+    rmse: count > 0 ? (totalError / count) * 100 : 10,
+    accuracy: count > 0 ? (correctDirection / count) * 100 : 50,
+  };
+}
+
+// ─── Ensemble Prediction ─────────────────────────────────────────────────────
+
+async function calculateEnsemblePrediction(
+  closes: number[],
+  horizon: number,
+): Promise<HorizonPrediction> {
   const currentPrice = closes[closes.length - 1] || 0;
-  
-  // Local TS Models
+
   const models: Array<{ name: MLModelName; fn: (c: number[], h: number) => number }> = [
     { name: "LinearRegression", fn: predictLinearRegression },
     { name: "MomentumExtrapolation", fn: predictMomentum },
     { name: "MeanReversion", fn: predictMeanReversion },
-    { name: "EMA_Projection", fn: predictEMAProjection }
+    { name: "EMA_Projection", fn: predictEMAProjection },
   ];
 
-  const evaluatedModels: ModelPrediction[] = [];
+  // Walk-forward backtest
+  const backtest = await walkForwardBacktest(closes, horizon);
 
-  // Geçmiş veri ile test et (Horizon kadar gün geriye git)
-  // Eğer yeterli veri yoksa basit ağırlık ver.
-  const testPointIndex = closes.length - 1 - horizon;
-  
+  const evaluatedModels: ModelPrediction[] = [];
   let totalInverseRmse = 0;
 
   for (const model of models) {
-    let rmse = 0;
-    if (testPointIndex > 20) {
-      const historicalSlice = closes.slice(0, testPointIndex + 1);
-      const actualTarget = closes[closes.length - 1];
-      const predictedTarget = model.fn(historicalSlice, horizon);
-      rmse = Math.abs(predictedTarget - actualTarget) / actualTarget * 100;
-    } else {
-      rmse = 5;
-    }
-    
-    if (rmse > 50) rmse = 50; 
-    if (rmse < 0.1) rmse = 0.1;
+    const historicalSlice = closes.slice(0, Math.max(30, closes.length - horizon));
+    const actualTarget = closes[Math.min(closes.length - 1, historicalSlice.length + horizon - 1)] || currentPrice;
+    const predictedTarget = model.fn(historicalSlice, horizon);
+    let rmse = Math.abs(predictedTarget - actualTarget) / (actualTarget || 1) * 100;
+    rmse = Math.max(0.1, Math.min(50, rmse));
 
-    const inverseRmse = 1 / rmse;
-    totalInverseRmse += inverseRmse;
+    totalInverseRmse += 1 / rmse;
 
     const futurePrediction = model.fn(closes, horizon);
-    let boundedPrediction = futurePrediction;
-    if (boundedPrediction > currentPrice * 1.5) boundedPrediction = currentPrice * 1.5;
-    if (boundedPrediction < currentPrice * 0.5) boundedPrediction = currentPrice * 0.5;
+    const bounded = Math.max(currentPrice * 0.5, Math.min(currentPrice * 1.5, futurePrediction));
 
-    evaluatedModels.push({
-      model: model.name,
-      prediction: boundedPrediction,
-      weight: inverseRmse,
-      rmse: rmse
-    });
+    evaluatedModels.push({ model: model.name, prediction: bounded, weight: 1 / rmse, rmse });
   }
 
-  // Ağırlıklı ortalama al
   let finalExpectedPrice = 0;
   let avgRmse = 0;
-  
+
   for (const em of evaluatedModels) {
     const normalizedWeight = em.weight / totalInverseRmse;
     em.weight = normalizedWeight;
@@ -203,15 +545,18 @@ async function calculateEnsemblePrediction(closes: number[], horizon: number, py
     avgRmse += em.rmse * normalizedWeight;
   }
 
-  // Volatiliteye göre Alt ve Üst Bant
-  const slice20 = closes.slice(-20);
-  const stdDev = Math.sqrt(slice20.reduce((acc, val) => acc + Math.pow(val - calcSMA(slice20, 20), 2), 0) / 20) || (currentPrice * 0.02);
-  const bandWidth = stdDev * Math.sqrt(horizon); // Zamanla artan belirsizlik
+  // Adjust RMSE by walk-forward accuracy
+  avgRmse = avgRmse * (110 - backtest.accuracy) / 100;
 
-  // Güven Skoru
-  let confidence = 100 - avgRmse * 5; 
-  if (confidence > 99) confidence = 99;
-  if (confidence < 10) confidence = 10;
+  const slice20 = closes.slice(-20);
+  const stdDev =
+    Math.sqrt(
+      slice20.reduce((acc, val) => acc + Math.pow(val - calcSMA(slice20, 20), 2), 0) / 20,
+    ) || currentPrice * 0.02;
+  const bandWidth = stdDev * Math.sqrt(horizon);
+
+  let confidence = backtest.accuracy - avgRmse * 3;
+  confidence = Math.max(10, Math.min(99, confidence));
 
   return {
     horizonDays: horizon,
@@ -219,84 +564,135 @@ async function calculateEnsemblePrediction(closes: number[], horizon: number, py
     lowerBand: finalExpectedPrice - bandWidth,
     upperBand: finalExpectedPrice + bandWidth,
     expectedReturnPercent: ((finalExpectedPrice - currentPrice) / currentPrice) * 100,
-    confidence: confidence,
+    confidence,
     rmse: avgRmse,
-    models: evaluatedModels
+    models: evaluatedModels,
   };
 }
 
-// Ana AI Motoru Çalıştırıcısı
-export async function runAIEngine(history: { close: number; volume: number }[], symbol: string, dataCount: number = 252): Promise<EngineResult> {
+// ─── Risk Management ─────────────────────────────────────────────────────────
+
+function computeRiskManagement(
+  currentPrice: number,
+  supports: number[],
+  resistances: number[],
+  volatility: number,
+): { suggestedStopLoss: number; suggestedTakeProfit: number; suggestedPositionSize: number; riskRewardRatio: number } {
+  const stopLoss = supports.length > 0 ? supports[0] * 0.98 : currentPrice * (1 - volatility / 100);
+  const takeProfit = resistances.length > 0 ? resistances[0] * 0.98 : currentPrice * (1 + volatility / 100);
+  const risk = currentPrice - stopLoss;
+  const reward = takeProfit - currentPrice;
+  const riskRewardRatio = risk > 0 ? reward / risk : 1;
+  const winRate = 0.55;
+  const kellyFraction = (winRate * riskRewardRatio - (1 - winRate)) / riskRewardRatio;
+  const positionSize = Math.max(0, Math.min(25, kellyFraction * 50));
+  return { suggestedStopLoss: stopLoss, suggestedTakeProfit: takeProfit, suggestedPositionSize: positionSize, riskRewardRatio };
+}
+
+// ─── Main AI Engine ──────────────────────────────────────────────────────────
+
+export async function runAIEngine(
+  history: { close: number; volume: number }[],
+  symbol: string,
+  dataCount: number = 252,
+): Promise<EngineResult> {
   const slicedHistory = history.slice(-dataCount);
   if (slicedHistory.length < 30) {
     throw new Error("Analiz için en az 30 günlük geçmiş veri gereklidir.");
   }
-  
-  const closes = slicedHistory.map(h => h.close);
+
+  const closes = slicedHistory.map((h) => h.close);
+  const volumes = slicedHistory.map((h) => h.volume || 0);
   const currentPrice = closes[closes.length - 1];
 
-  // Temel İndikatörler
+  // Generate synthetic high/low if not provided (approximate from close)
+  const highs = closes.map((c) => c * 1.01);
+  const lows = closes.map((c) => c * 0.99);
+
+  // Core indicators
   const rsi = calcRSI(closes, 14);
   const sma20 = calcSMA(closes, 20);
   const sma50 = calcSMA(closes, 50);
-  const ema12 = calcEMA(closes, 12);
-  const ema26 = calcEMA(closes, 26);
-  const macd = ema12 - ema26;
-  const macdSignal = calcEMA(closes.slice(-9), 9);
+  const macdResult = calcMACD(closes);
+  const stochastic = calcStochastic(closes, highs, lows, 14, 3);
+  const adx = calcADX(closes, highs, lows, 14);
+  const cci = calcCCI(closes, highs, lows, 20);
+  const obv = calcOBV(closes, volumes);
+  const vwap = calcVWAP(closes, volumes, highs, lows);
+  const atr = calcATR(closes, highs, lows, 14);
+  const volatility = calcVolatility(closes);
+  const regime = detectRegime(closes, volatility);
 
-  // Volatilite hesapla
-  const slice20 = closes.slice(-20);
-  const mean20 = calcSMA(slice20, 20);
-  const volatility = (Math.sqrt(slice20.reduce((acc, val) => acc + Math.pow(val - mean20, 2), 0) / 20) / mean20) * 100;
+  // Trend
+  const trend: "YÜKSELEN" | "DÜŞEN" | "YATAY" = sma20 > sma50 ? "YÜKSELEN" : sma20 < sma50 * 0.95 ? "DÜŞEN" : "YATAY";
 
-  // Trend Tespiti
-  const trend = sma20 > sma50 ? "YÜKSELEN" : sma20 < sma50 * 0.95 ? "DÜŞEN" : "YATAY";
+  // Support / resistance
+  const { supports, resistances } = findSupportResistance(closes);
 
-  // Tahminleri Üret (Gelecek 1, 5, 20, 60, 120 gün)
+  // Predictions
   const horizons = [1, 5, 20, 60, 120];
-  const predictions = await Promise.all(horizons.map(h => calculateEnsemblePrediction(closes, h)));
+  const predictions = await Promise.all(horizons.map((h) => calculateEnsemblePrediction(closes, h)));
 
-  // Bulanık Mantık Karar Motoru (AL / SAT / BEKLE)
-  let score = 50; // Başlangıç nötr
-  
-  // RSI Kuralları
-  if (rsi < 30) score += 15; // Aşırı satım, fırsat
-  else if (rsi > 70) score -= 15; // Aşırı alım, risk
+  // ── Scoring ──────────────────────────────────────────────────────────────
+  let score = 50;
 
-  // MACD Kuralları
-  if (macd > macdSignal) score += 10;
+  // RSI
+  if (rsi < 30) score += 15;
+  else if (rsi > 70) score -= 15;
+
+  // MACD
+  if (macdResult.macd > macdResult.signal) score += 10;
   else score -= 10;
 
-  // Trend Kuralları
+  // Trend
   if (trend === "YÜKSELEN") score += 10;
   if (trend === "DÜŞEN") score -= 10;
 
-  // Orta-Uzun vade (20 gün) tahmini pozitif mi?
-  const pred20 = predictions.find(p => p.horizonDays === 20);
+  // 20-day prediction
+  const pred20 = predictions.find((p) => p.horizonDays === 20);
   if (pred20) {
     if (pred20.expectedReturnPercent > 3) score += 15;
     else if (pred20.expectedReturnPercent < -3) score -= 15;
-    
-    // Model RMSE'si yüksekse (Güvenilir değilse) skoru merkeze çek (Realism Penalty)
     if (pred20.rmse > 10) {
-      score = score > 50 ? score - 10 : score + 10; 
+      score = score > 50 ? score - 10 : score + 10;
     }
   }
 
-  // Karar belirle
+  // Stochastic
+  if (stochastic.k < 20 && stochastic.d < 20) score += 10;
+  if (stochastic.k > 80 && stochastic.d > 80) score -= 10;
+
+  // ADX (trend strength amplifier)
+  if (adx > 25 && trend === "YÜKSELEN") score += 5;
+  if (adx > 25 && trend === "DÜŞEN") score -= 5;
+
+  // CCI
+  if (cci < -100) score += 5;
+  if (cci > 100) score -= 5;
+
+  // Volume confirmation
+  if (obv > 0 && trend === "YÜKSELEN") score += 5;
+  if (obv < 0 && trend === "DÜŞEN") score += 5;
+
+  // ── Decision ─────────────────────────────────────────────────────────────
   let decision: "AL" | "SAT" | "BEKLE" = "BEKLE";
   if (score >= 60) decision = "AL";
   else if (score <= 40) decision = "SAT";
 
-  // Güvenlik: Volatilite çok yüksekse AL kararını BEKLE yap (Risk yönetimi)
+  // Regime adjustments
+  if (regime === "HIGH_VOLATILITY" && decision === "AL") decision = "BEKLE";
+  if (regime === "RANGING" && decision === "AL") score -= 5;
+
+  // Safety: high volatility overrides
   if (decision === "AL" && volatility > 25) decision = "BEKLE";
 
-  // Nihai güven skoru
   let finalConfidence = Math.max(10, Math.min(99, score));
   if (decision === "BEKLE") {
-    // Bekle kararı belirsizlik demektir, güven skorunu 50 civarına çekeriz
     finalConfidence = 100 - Math.abs(score - 50) * 2;
   }
+  finalConfidence = Math.max(10, Math.min(99, finalConfidence));
+
+  const riskManagement = computeRiskManagement(currentPrice, supports, resistances, volatility);
 
   return {
     decision,
@@ -308,76 +704,78 @@ export async function runAIEngine(history: { close: number; volume: number }[], 
     predictions,
     indicators: {
       rsi,
-      macd,
-      macdSignal,
+      macd: macdResult.macd,
+      macdSignal: macdResult.signal,
       sma20,
-      sma50
-    }
+      sma50,
+      stochastic,
+      adx,
+      cci,
+      obv,
+      vwap,
+      atr,
+    },
+    regime,
+    riskManagement,
+    supportLevels: supports,
+    resistanceLevels: resistances,
   };
 }
 
-export interface SimpleTechnicalResult {
-  decision: "AL" | "SAT" | "BEKLE";
-  rawScore: number;
-  currentPrice: number;
-}
+// ─── Simple Technical Engine (lightweight scanner) ───────────────────────────
 
-// Tüm BIST100'e hızlıca uygulanacak hafif teknik tarayıcı motoru
-// runAIEngine ile tutarlı ağırlıklar kullanılır (tutarlı sinyal üretimi için)
 export function runSimpleTechnicalEngine(
   history: { close: number; high?: number; low?: number; volume?: number }[],
-  symbol: string
+  symbol: string,
 ): SimpleTechnicalResult {
-  const closes = history.map(h => h.close);
+  const closes = history.map((h) => h.close);
   const currentPrice = closes[closes.length - 1];
 
-  // Temel İndikatörler
+  const highs = history.map((h) => h.high ?? h.close * 1.01);
+  const lows = history.map((h) => h.low ?? h.close * 0.99);
+  const volumes = history.map((h) => h.volume ?? 0);
+
   const rsi = calcRSI(closes, 14);
   const sma20 = calcSMA(closes, 20);
   const sma50 = calcSMA(closes, 50);
-  const ema12 = calcEMA(closes, 12);
-  const ema26 = calcEMA(closes, 26);
-  const macd = ema12 - ema26;
-  const macdSignal = calcEMA(closes.slice(-9), 9);
+  const macdResult = calcMACD(closes);
+  const stochastic = calcStochastic(closes, highs, lows, 14, 3);
+  const adx = calcADX(closes, highs, lows, 14);
+  const volatility = calcVolatility(closes);
 
-  // Volatilite hesapla (AI engine ile aynı mantık)
-  const slice20 = closes.slice(-20);
-  const mean20 = calcSMA(slice20, 20);
-  const volatility = (Math.sqrt(slice20.reduce((acc, val) => acc + Math.pow(val - mean20, 2), 0) / 20) / mean20) * 100;
+  const trend: "YÜKSELEN" | "DÜŞEN" | "YATAY" = sma20 > sma50 ? "YÜKSELEN" : sma20 < sma50 * 0.95 ? "DÜŞEN" : "YATAY";
 
-  const trend = sma20 > sma50 ? "YÜKSELEN" : sma20 < sma50 * 0.95 ? "DÜŞEN" : "YATAY";
-
-  // Başlangıç puanı
   let score = 50;
 
-  // RSI Kuralları (AI engine ile aynı: ±15)
+  // RSI
   if (rsi < 30) score += 15;
   else if (rsi > 70) score -= 15;
 
-  // MACD Kuralları (AI engine ile aynı: ±10)
-  if (macd > macdSignal) score += 10;
+  // MACD
+  if (macdResult.macd > macdResult.signal) score += 10;
   else score -= 10;
 
-  // Trend Kuralları (AI engine ile aynı: ±10)
+  // Trend
   if (trend === "YÜKSELEN") score += 10;
   else if (trend === "DÜŞEN") score -= 10;
 
-  // Fiyat-SMA sapması (AI engine'deki destek/direnç yerine, daha stabil)
+  // Price-SMA divergence
   if (currentPrice < sma20 * 0.95) score += 10;
   else if (currentPrice > sma20 * 1.05) score -= 10;
 
-  // Karar
+  // Stochastic
+  if (stochastic.k < 20 && stochastic.d < 20) score += 5;
+  if (stochastic.k > 80 && stochastic.d > 80) score -= 5;
+
+  // ADX
+  if (adx > 25 && trend === "YÜKSELEN") score += 5;
+  if (adx > 25 && trend === "DÜŞEN") score -= 5;
+
   let decision: "AL" | "SAT" | "BEKLE" = "BEKLE";
   if (score >= 60) decision = "AL";
   else if (score <= 40) decision = "SAT";
 
-  // Güvenlik: Volatilite çok yüksekse AL kararını BEKLE yap (AI engine ile aynı)
   if (decision === "AL" && volatility > 25) decision = "BEKLE";
 
-  return {
-    decision,
-    rawScore: score,
-    currentPrice
-  };
+  return { decision, rawScore: score, currentPrice };
 }
-

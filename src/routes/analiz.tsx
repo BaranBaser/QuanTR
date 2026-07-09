@@ -8,7 +8,7 @@ import { TrendingUp, TrendingDown, Star, RefreshCw, BarChart3, Activity, Clock, 
 import { useWatchlist } from "@/lib/storage";
 import { z } from "zod";
 import { useMemo, useState } from "react";
-import { calcRSI, calcSMA, calcEMA, calcBollinger, calcMACD, findSupportResistance } from "@/lib/ml.engine";
+import { calcRSI, calcSMA, calcEMA, calcBollinger, calcMACD, findSupportResistance, calcStochastic, calcADX, calcCCI, calcATR, calcOBV, calcVWAP, calcVolatility, detectRegime } from "@/lib/ml.engine";
 import { AiAnalysisResult } from "@/components/AiAnalysisResult";
 
 export const Route = createFileRoute("/analiz")({
@@ -104,6 +104,9 @@ function AnalizPage() {
   const technicals = useMemo(() => {
     if (history.length < 5) return null;
     const closes = history.map((h) => h.close).filter(Boolean) as number[];
+    const highs = history.map((h) => h.high ?? h.close * 1.01).filter(Boolean) as number[];
+    const lows = history.map((h) => h.low ?? h.close * 0.99).filter(Boolean) as number[];
+    const volumes = history.map((h) => h.volume ?? 0) as number[];
     if (closes.length < 5) return null;
 
     const rsi = calcRSI(closes);
@@ -114,31 +117,41 @@ function AnalizPage() {
     const ema12 = calcEMA(closes, 12);
     const ema26 = calcEMA(closes, 26);
     const { supports, resistances } = findSupportResistance(closes);
+    const stochastic = calcStochastic(closes, highs, lows, 14, 3);
+    const adx = calcADX(closes, highs, lows, 14);
+    const cci = calcCCI(closes, highs, lows, 20);
+    const atr = calcATR(closes, highs, lows, 14);
+    const obv = calcOBV(closes, volumes);
+    const vwap = calcVWAP(closes, volumes, highs, lows);
 
     const price = closes[closes.length - 1];
     const priceChange5d = closes.length >= 5 && closes[closes.length - 5] !== 0 ? ((price - closes[closes.length - 5]) / closes[closes.length - 5]) * 100 : 0;
     const priceChange1m = closes.length >= 20 && closes[closes.length - 20] !== 0 ? ((price - closes[closes.length - 20]) / closes[closes.length - 20]) * 100 : 0;
-    const volatility = closes.length >= 20
-      ? Math.sqrt(closes.slice(-20).reduce((acc, val, i, arr) => i > 0 && arr[i - 1] !== 0 ? acc + Math.pow((val - arr[i - 1]) / arr[i - 1], 2) : acc, 0) / 19) * Math.sqrt(252) * 100
-      : 0;
+    const volatility = calcVolatility(closes);
+    const regime = detectRegime(closes, volatility);
 
     // Sinyal hesaplama
     const rsiSignal = rsi < 30 ? "AL" : rsi > 70 ? "SAT" : "NÖTR";
     const macdSignal = macd.hist > 0 ? "AL" : "SAT";
     const bollingerSignal = price < bollinger.lower ? "AL" : price > bollinger.upper ? "SAT" : "NÖTR";
     const trendSignal = sma20 > sma50 ? "YÜKSELEN" : "DÜŞEN";
+    const stochasticSignal = stochastic.k < 20 ? "AL" : stochastic.k > 80 ? "SAT" : "NÖTR";
+    const adxSignal = adx > 25 ? "GÜÇLÜ TREND" : "ZAYIF";
+    const cciSignal = cci < -100 ? "AL" : cci > 100 ? "SAT" : "NÖTR";
 
     // Genel sinyal
-    const signals = [rsiSignal, macdSignal, bollingerSignal];
+    const signals = [rsiSignal, macdSignal, bollingerSignal, stochasticSignal, cciSignal];
     const alCount = signals.filter((s) => s === "AL").length;
     const satCount = signals.filter((s) => s === "SAT").length;
     const overallSignal = alCount > satCount ? "AL" : satCount > alCount ? "SAT" : "NÖTR";
 
     return {
       rsi, macd, bollinger, sma20, sma50, ema12, ema26,
+      stochastic, adx, cci, atr, obv, vwap,
       supports, resistances,
-      priceChange5d, priceChange1m, volatility,
+      priceChange5d, priceChange1m, volatility, regime,
       rsiSignal, macdSignal, bollingerSignal, trendSignal, overallSignal,
+      stochasticSignal, adxSignal, cciSignal,
     };
   }, [history]);
 
@@ -318,25 +331,44 @@ function AnalizPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { name: "RSI (14)", value: technicals.rsi.toFixed(1), signal: technicals.rsiSignal, max: 100 },
+                  { name: "RSI (14)", value: technicals.rsi.toFixed(1), signal: technicals.rsiSignal },
                   { name: "MACD", value: technicals.macd.hist > 0 ? `+${technicals.macd.hist.toFixed(2)}` : technicals.macd.hist.toFixed(2), signal: technicals.macdSignal },
                   { name: "Bollinger", value: stock.price < technicals.bollinger.lower ? "Alt Bant" : stock.price > technicals.bollinger.upper ? "Üst Bant" : "Orta", signal: technicals.bollingerSignal },
                   { name: "Trend (SMA)", value: technicals.trendSignal, signal: technicals.sma20 > technicals.sma50 ? "AL" : "SAT" },
                   { name: "SMA 20", value: `${technicals.sma20.toFixed(2)} TL`, signal: stock.price > technicals.sma20 ? "Üzerinde" : "Altında" },
                   { name: "SMA 50", value: `${technicals.sma50.toFixed(2)} TL`, signal: stock.price > technicals.sma50 ? "Üzerinde" : "Altında" },
+                  { name: "Stochastic %K", value: technicals.stochastic.k.toFixed(1), signal: technicals.stochasticSignal },
+                  { name: "ADX", value: technicals.adx.toFixed(1), signal: technicals.adxSignal },
+                  { name: "CCI", value: technicals.cci.toFixed(0), signal: technicals.cciSignal },
                   { name: "Volatilite", value: `${technicals.volatility.toFixed(1)}%`, signal: technicals.volatility > 40 ? "YÜKSEK" : technicals.volatility < 20 ? "DÜŞÜK" : "NORMAL" },
                   { name: "Değişim (5G)", value: `${technicals.priceChange5d >= 0 ? "+" : ""}${technicals.priceChange5d.toFixed(2)}%`, signal: technicals.priceChange5d > 0 ? "POZİTİF" : "NEGATİF" },
+                  { name: "ATR", value: `${technicals.atr.toFixed(2)} TL`, signal: technicals.atr > stock.price * 0.03 ? "YÜKSEK" : "NORMAL" },
                 ].map((g) => (
                   <div key={g.name} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/40">
                     <span className="text-xs text-muted-foreground">{g.name}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium">{g.value}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${g.signal === "AL" || g.signal === "POZİTİF" || g.signal === "Üzerinde" ? "bg-[color:var(--success)]/20 text-[color:var(--success)]" : g.signal === "SAT" || g.signal === "NEGATİF" || g.signal === "Altında" || g.signal === "YÜKSEK" ? "bg-destructive/20 text-destructive" : "bg-muted text-muted-foreground"}`}>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${g.signal === "AL" || g.signal === "POZİTİF" || g.signal === "Üzerinde" || g.signal === "GÜÇLÜ TREND" ? "bg-[color:var(--success)]/20 text-[color:var(--success)]" : g.signal === "SAT" || g.signal === "NEGATİF" || g.signal === "Altında" || g.signal === "YÜKSEK" ? "bg-destructive/20 text-destructive" : "bg-muted text-muted-foreground"}`}>
                         {g.signal}
                       </span>
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Rejim Kartı */}
+              <div className="mt-4 p-3 rounded-lg border border-border bg-secondary/20 flex items-center justify-between">
+                <span className="text-xs font-bold text-muted-foreground uppercase">Piyasa Rejimi</span>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
+                  technicals.regime === "TRENDING_UP" ? "bg-[color:var(--success)]/20 text-[color:var(--success)]" :
+                  technicals.regime === "TRENDING_DOWN" ? "bg-destructive/20 text-destructive" :
+                  technicals.regime === "HIGH_VOLATILITY" ? "bg-orange-500/20 text-orange-500" :
+                  "bg-yellow-500/20 text-yellow-500"
+                }`}>
+                  {technicals.regime === "TRENDING_UP" ? "↑ Yükselen Trend" :
+                   technicals.regime === "TRENDING_DOWN" ? "↓ Düşen Trend" :
+                   technicals.regime === "HIGH_VOLATILITY" ? "⚡ Yüksek Volatilite" : "→ Yatay"}
+                </span>
               </div>
             </div>
           )}
@@ -386,8 +418,8 @@ function AnalizPage() {
             <div className="space-y-2">
               {[
                 { l: "Günün Açılışı", v: history.length > 0 && history[0]?.open != null ? `${history[0].open.toFixed(2)} TL` : "-" },
-                { l: "Gün İçi En Yüksek", v: `${(liveStock?.high || stock.high52 > stock.price ? stock.price : stock.high52).toFixed(2)} TL` },
-                { l: "Gün İçi En Düşük", v: `${(liveStock?.low || stock.low52 < stock.price ? stock.price : stock.low52).toFixed(2)} TL` },
+                { l: "Gün İçi En Yüksek", v: history.length > 0 ? `${Math.max(...history.map(h => h.high ?? h.close)).toFixed(2)} TL` : "-" },
+                { l: "Gün İçi En Düşük", v: history.length > 0 ? `${Math.min(...history.map(h => h.low ?? h.close)).toFixed(2)} TL` : "-" },
                 { l: "52 Hafta Yüksek", v: `${stock.high52} TL` },
                 { l: "52 Hafta Düşük", v: `${stock.low52} TL` },
                 { l: "52H Orta Nokta", v: `${((stock.high52 + stock.low52) / 2).toFixed(2)} TL` },
@@ -410,8 +442,8 @@ function AnalizPage() {
             <div className="space-y-2">
               {[
                 { l: "Sektör", v: SECTOR_MAP[stock.symbol] || stock.sector },
-                { l: "Sektör Ort. F/K", v: stock.pe > 0 ? `${(stock.pe * 1.2).toFixed(1)}` : "-" },
-                { l: "Sektör Karşılaştırma", v: stock.pe > 0 && stock.pe < 10 ? "Değerli" : stock.pe >= 10 && stock.pe < 20 ? "Normal" : stock.pe >= 20 ? "Pahalı" : "-" },
+                { l: "F/K Oranı", v: stock.pe > 0 ? `${stock.pe.toFixed(1)}` : "-" },
+                { l: "Değerlendirme", v: stock.pe > 0 && stock.pe < 10 ? "Değerli" : stock.pe >= 10 && stock.pe < 20 ? "Normal" : stock.pe >= 20 ? "Pahalı" : "-" },
               ].map((item) => (
                 <div key={item.l} className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">{item.l}</span>
