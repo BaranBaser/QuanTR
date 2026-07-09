@@ -5,9 +5,18 @@ import {
   CandlestickChart, GitCompareArrows, FileText,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import logo from "@/assets/stockbear-logo.png";
 import aiChip from "@/assets/ai-chip.jpg";
 import { stocks } from "@/lib/market-data";
+
+const bottomNav = [
+  { icon: Home, label: "Ana Sayfa", to: "/" },
+  { icon: LineChart, label: "Piyasa", to: "/piyasa" },
+  { icon: Sparkles, label: "AI", to: "/ai" },
+  { icon: Briefcase, label: "Portföy", to: "/portfoy" },
+  { icon: Newspaper, label: "Haberler", to: "/haberler" },
+] as const;
 
 const nav = [
   { icon: Home, label: "Ana Sayfa", to: "/" },
@@ -30,6 +39,7 @@ const nav = [
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [dark, setDark] = useState(true);
@@ -149,8 +159,32 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </aside>
 
-        <main id="main-content" className="flex-1 min-w-0 p-4 md:p-6 space-y-6" tabIndex={-1}>{children}</main>
+        <main id="main-content" className={`flex-1 min-w-0 p-4 md:p-6 space-y-6 ${isMobile ? "pb-24" : ""}`} tabIndex={-1}>{children}</main>
       </div>
+
+      {/* Mobil Alt Navigasyon */}
+      {isMobile && (
+        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur border-t border-border safe-area-bottom" aria-label="Alt menü">
+          <div className="flex items-center justify-around px-2 py-1">
+            {bottomNav.map((item) => {
+              const active = pathname === item.to;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[10px] font-medium transition-colors min-w-[56px] ${
+                    active ? "text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  <item.icon className={`w-5 h-5 ${active ? "text-primary" : ""}`} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
