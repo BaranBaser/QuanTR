@@ -2,12 +2,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { usePortfolio } from "@/lib/storage";
 import { useServerFn } from "@tanstack/react-start";
-import { fetchSingleStock } from "@/lib/ai.functions";
+import { fetchSingleStock, fetchStockHistory } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
 import { Trash2, Plus, Download } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SECTOR_MAP } from "@/lib/market-data";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
+import { calcVolatility } from "@/lib/ml.engine";
 
 export const Route = createFileRoute("/portfoy")({ component: PortfoyPage });
 
@@ -30,15 +31,30 @@ function PortfoyPage() {
           try {
             const result = await fetchSingle({ data: { symbol: item.symbol } });
             if (result?.price) prices[item.symbol] = result.price;
-          } catch {}
+          } catch (e) { console.warn("Fiyat alınamadı:", item.symbol, e); }
         }
         return prices;
-      } catch {
-        return {} as Record<string, number>;
-      }
+      } catch (e) { console.error("Portföy fiyat hatası:", e); return {} as Record<string, number>; }
     },
     staleTime: 60_000,
     refetchInterval: 120_000,
+    throwOnError: false,
+  });
+
+  const fetchHistory = useServerFn(fetchStockHistory);
+  const { data: histories = {} } = useQuery({
+    queryKey: ["portfolio-histories", items.map((i) => i.symbol).join(",")],
+    queryFn: async () => {
+      const result: Record<string, number[]> = {};
+      for (const item of items) {
+        try {
+          const h = await fetchHistory({ data: { symbol: item.symbol, range: "3mo" } });
+          if (h && h.length > 0) result[item.symbol] = h.map((d: { close: number }) => d.close);
+        } catch {}
+      }
+      return result;
+    },
+    staleTime: 300_000,
     throwOnError: false,
   });
 
@@ -70,15 +86,37 @@ function PortfoyPage() {
     if (rows.length === 0) return null;
     const totalValue = rows.reduce((s, r) => s + r.value, 0);
     const weights = rows.map(r => r.value / totalValue);
-    const volatilities = rows.map(() => 15 + Math.random() * 25);
+    const volatilities = rows.map(r => {
+      const closes = histories[r.symbol];
+      return closes && closes.length > 10 ? calcVolatility(closes) : 20;
+    });
     const portfolioVolatility = weights.reduce((s, w, i) => s + w * volatilities[i], 0);
     const riskFreeRate = 5;
     const sharpeRatio = (totalPct - riskFreeRate) / (portfolioVolatility || 1);
     const maxPos = rows.reduce((max, r) => r.value > max.value ? r : max, rows[0]);
     return { portfolioVolatility, sharpeRatio, maxPos };
-  }, [rows, totalPct]);
+  }, [rows, totalPct, histories]);
 
-  const benchmarkDiff = useMemo(() => +(Math.random() * 15 - 5).toFixed(2), []);
+  const { data: bistHistory = [] } = useQuery({
+    queryKey: ["bist100-history"],
+    queryFn: async () => {
+      try {
+        const h = await fetchHistory({ data: { symbol: "XU100", range: "1mo" } });
+        return h ?? [];
+      } catch { return []; }
+    },
+    staleTime: 300_000,
+    throwOnError: false,
+  });
+
+  const benchmarkDiff = useMemo(() => {
+    if (bistHistory.length < 2) return 0;
+    const first = bistHistory[0]?.close || 0;
+    const last = bistHistory[bistHistory.length - 1]?.close || 0;
+    if (first === 0) return 0;
+    const bistReturn = ((last - first) / first) * 100;
+    return +((totalPct - bistReturn)).toFixed(2);
+  }, [bistHistory, totalPct]);
 
   const exportCsv = () => {
     const header = "Hisse,Adet,Ort. Maliyet,Güncel Fiyat,Değer,K/Z,K/Z %\n";
@@ -172,7 +210,7 @@ function PortfoyPage() {
                 </td>
                 <td className="text-right font-medium">{r.value.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL</td>
                 <td className={`text-right ${r.pl >= 0 ? "text-[color:var(--success)]" : "text-destructive"}`}>{r.pl >= 0 ? "+" : ""}{r.pl.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL <span className="text-xs">({r.plPct >= 0 ? "+" : ""}{r.plPct.toFixed(2)}%)</span></td>
-                <td className="text-right pr-3"><button onClick={() => remove(r.symbol)} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></button></td>
+                <td className="text-right pr-3"><button onClick={() => remove(r.symbol)} className="text-muted-foreground hover:text-destructive" aria-label={`${r.symbol} pozisyonunu kaldır`}><Trash2 className="w-4 h-4" /></button></td>
               </tr>
             ))}
             {rows.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground text-sm">Portföyünüz boş. Yukarıdan pozisyon ekleyin.</td></tr>}

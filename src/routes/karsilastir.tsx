@@ -223,9 +223,13 @@ function KarsilastirPage() {
           case "RSI":
             entry[s] = rsi.toFixed(0);
             break;
-          case "Hacim":
-            entry[s] = String(Math.floor(Math.random() * 40) + 30);
+          case "Hacim": {
+            const volumes = h.map((p: { volume?: number }) => p.volume ?? 0);
+            const avgVolume = volumes.length > 0 ? volumes.reduce((a: number, b: number) => a + b, 0) / volumes.length : 0;
+            const maxVolume = Math.max(...volumes, 1);
+            entry[s] = Math.min(100, Math.round((avgVolume / maxVolume) * 100)).toFixed(0);
             break;
+          }
           case "Trend Gücü":
             entry[s] = String(Math.floor(Math.abs(monthlyReturn) * 3 + 20));
             break;
@@ -253,6 +257,7 @@ function KarsilastirPage() {
               <button
                 onClick={() => removeSymbol(s)}
                 className="hover:text-destructive"
+                aria-label={`${s} hissesini karşılaştırmadan kaldır`}
               >
                 <X className="w-3.5 h-3.5" />
               </button>

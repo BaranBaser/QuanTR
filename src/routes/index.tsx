@@ -23,7 +23,17 @@ type DisplayItem = {
   sector: string;
 };
 
-export const Route = createFileRoute("/")({ component: Dashboard });
+export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "stockbear — Hisse Analizi ve AI Karar Motoru" },
+      { name: "description", content: "BIST hisselerini yapay zeka ile analiz edin, portföyünüzü takip edin, teknik göstergeleri inceleyin." },
+      { property: "og:title", content: "stockbear — Hisse Analizi ve AI Karar Motoru" },
+      { property: "og:description", content: "BIST hisselerini yapay zeka ile analiz edin, portföyünüzü takip edin." },
+    ],
+  }),
+  component: Dashboard,
+});
 
 function Dashboard() {
   const fetchIdx = useServerFn(fetchIndexes);

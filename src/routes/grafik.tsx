@@ -15,6 +15,13 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/grafik")({
   validateSearch: (search: Record<string, unknown>) => searchSchema.parse(search),
+  head: () => ({
+    meta: [
+      { title: "Teknik Grafik — stockbear" },
+      { name: "description", content: "TradingView tarzı interaktif mum grafiği, teknik göstergeler ve fiyat analizi." },
+      { property: "og:title", content: "Teknik Grafik — stockbear" },
+    ],
+  }),
   component: GrafikPage,
 });
 

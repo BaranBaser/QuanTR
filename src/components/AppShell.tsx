@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="flex items-center gap-4 px-4 md:px-6 py-3 border-b border-border sticky top-0 z-30 bg-background/95 backdrop-blur">
-        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden w-9 h-9 rounded-full hover:bg-secondary flex items-center justify-center text-muted-foreground">
+        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden w-9 h-9 rounded-full hover:bg-secondary flex items-center justify-center text-muted-foreground" aria-label={mobileMenuOpen ? "Menüyü kapat" : "Menüyü aç"}>
           {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
         <Link to="/" className="flex items-center gap-2">
@@ -70,6 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               onFocus={() => setOpen(true)}
               onBlur={() => setTimeout(() => setOpen(false), 150)}
               placeholder="Hisse ara..."
+              aria-label="Hisse ara"
               className="w-full bg-secondary/60 border border-border rounded-lg pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-primary/40"
             />
           </div>
@@ -95,10 +96,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button onClick={toggleTheme} className="w-9 h-9 rounded-full hover:bg-secondary flex items-center justify-center text-muted-foreground">
+          <button onClick={toggleTheme} className="w-9 h-9 rounded-full hover:bg-secondary flex items-center justify-center text-muted-foreground" aria-label={dark ? "Aydınlık moda geç" : "Karanlık moda geç"}>
             {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
-          <Link to="/alarm" className="relative w-9 h-9 rounded-full hover:bg-secondary flex items-center justify-center text-muted-foreground">
+          <Link to="/alarm" className="relative w-9 h-9 rounded-full hover:bg-secondary flex items-center justify-center text-muted-foreground" aria-label="Alarmlar">
             <Bell className="w-4 h-4" />
           </Link>
         </div>
@@ -107,15 +108,15 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex">
         {/* Mobil menü overlay */}
         {mobileMenuOpen && (
-          <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileMenuOpen(false)} />
+          <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileMenuOpen(false)} aria-hidden="true" />
         )}
 
         {/* Masaüstü sidebar */}
-        <aside className="w-60 shrink-0 border-r border-border p-4 min-h-[calc(100vh-65px)] hidden lg:flex flex-col gap-1 sticky top-[65px] self-start max-h-[calc(100vh-65px)] overflow-y-auto">
+        <aside className="w-60 shrink-0 border-r border-border p-4 min-h-[calc(100vh-65px)] hidden lg:flex flex-col gap-1 sticky top-[65px] self-start max-h-[calc(100vh-65px)] overflow-y-auto" aria-label="Ana menü">
           {nav.map((item) => {
             const active = pathname === item.to;
             return (
-              <Link key={item.to} to={item.to} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              <Link key={item.to} to={item.to} aria-current={active ? "page" : undefined} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                 active ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}>
                 <item.icon className="w-4 h-4" />
@@ -134,11 +135,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </aside>
 
         {/* Mobil sidebar */}
-        <aside className={`fixed top-[57px] left-0 w-64 h-[calc(100vh-57px)] bg-background border-r border-border p-4 flex flex-col gap-1 z-50 overflow-y-auto transition-transform duration-200 lg:hidden ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <aside className={`fixed top-[57px] left-0 w-64 h-[calc(100vh-57px)] bg-background border-r border-border p-4 flex flex-col gap-1 z-50 overflow-y-auto transition-transform duration-200 lg:hidden ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`} role="dialog" aria-modal={mobileMenuOpen} aria-label="Mobil menü">
           {nav.map((item) => {
             const active = pathname === item.to;
             return (
-              <Link key={item.to} to={item.to} onClick={() => setMobileMenuOpen(false)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              <Link key={item.to} to={item.to} onClick={() => setMobileMenuOpen(false)} aria-current={active ? "page" : undefined} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                 active ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}>
                 <item.icon className="w-4 h-4" />
@@ -148,7 +149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </aside>
 
-        <main className="flex-1 min-w-0 p-4 md:p-6 space-y-6">{children}</main>
+        <main id="main-content" className="flex-1 min-w-0 p-4 md:p-6 space-y-6" tabIndex={-1}>{children}</main>
       </div>
     </div>
   );

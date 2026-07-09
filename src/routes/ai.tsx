@@ -159,7 +159,17 @@ function BacktestSection({ symbol }: { symbol: string }) {
   );
 }
 
-export const Route = createFileRoute("/ai")({ component: AIEnginePage });
+export const Route = createFileRoute("/ai")({
+  head: () => ({
+    meta: [
+      { title: "AI Karar Motoru — stockbear" },
+      { name: "description", content: "Makine öğrenmesi ile hisse analizi, fiyat tahmini ve alım-satım sinyalleri." },
+      { property: "og:title", content: "AI Karar Motoru — stockbear" },
+      { property: "og:description", content: "Makine öğrenmesi ile hisse analizi, fiyat tahmini ve alım-satım sinyalleri." },
+    ],
+  }),
+  component: AIEnginePage,
+});
 
 function AIEnginePage() {
   const [selectedSymbol, setSelectedSymbol] = useState("THYAO");

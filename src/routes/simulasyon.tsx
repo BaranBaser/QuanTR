@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, PageHeader, Sparkline, genLine } from "@/components/AppShell";
 import { stocks, findStock } from "@/lib/market-data";
 import { Play, RotateCcw, Beaker } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 export const Route = createFileRoute("/simulasyon")({ component: SimPage });
 
@@ -42,7 +42,7 @@ function SimPage() {
   const currentPrice = stock ? stock.price * cumulativeMultiplier : 0;
 
   // Track price history for sparkline
-  useMemo(() => {
+  useEffect(() => {
     const history: number[] = [];
     let mult = 1;
     for (let i = 0; i <= day; i++) {
