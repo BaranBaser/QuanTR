@@ -58,14 +58,12 @@ interface AiAnalysisResultProps {
 }
 
 function mapHorizonToLabel(days: number) {
-  switch (days) {
-    case 1: return "1 Gün";
-    case 5: return "1 Hafta";
-    case 20: return "1 Ay";
-    case 60: return "3 Ay";
-    case 120: return "6 Ay";
-    default: return `${days} Gün`;
-  }
+  const labels: Record<number, string> = {
+    1: "1 Gün", 2: "2 Gün", 3: "3 Gün", 5: "1 Hafta",
+    7: "1,5 Hafta", 10: "2 Hafta", 15: "3 Hafta", 20: "1 Ay",
+    30: "1,5 Ay", 40: "2 Ay", 60: "3 Ay", 80: "4 Ay", 120: "6 Ay",
+  };
+  return labels[days] || `${days} Gün`;
 }
 
 function RegimeBadge({ regime }: { regime: string }) {
@@ -268,7 +266,7 @@ function ProjectionChart({ predictions, currentPrice, shareCount }: { prediction
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} vertical={false} />
-            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "currentColor", opacity: 0.5 }} />
+            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "currentColor", opacity: 0.5 }} interval={Math.floor(predictions.length / 6)} />
             <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "currentColor", opacity: 0.5 }} width={40} />
             <Tooltip
               contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
@@ -284,7 +282,7 @@ function ProjectionChart({ predictions, currentPrice, shareCount }: { prediction
             <Line type="monotone" dataKey="MeanReversion" stroke="oklch(0.6 0.15 300)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Mean Reversion" />
             <Line type="monotone" dataKey="EMA_Projection" stroke="oklch(0.6 0.15 100)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="EMA Projeksiyonu" />
 
-            <Line type="monotone" dataKey="Ensemble" stroke="var(--primary)" strokeWidth={4} dot={{ r: 6, fill: "var(--primary)" }} activeDot={{ r: 8 }} name="Nihai Ortak Beklenti" />
+            <Line type="monotone" dataKey="Ensemble" stroke="var(--primary)" strokeWidth={3} dot={{ r: 2, fill: "var(--primary)" }} activeDot={{ r: 5 }} name="Nihai Ortak Beklenti" />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -310,7 +308,13 @@ export function AiAnalysisResult({ analysis, shareCount, isLoading }: AiAnalysis
     );
   }
 
-  const filteredPredictions = analysis.predictions.filter((p) => [5, 20, 60, 120].includes(p.horizonDays));
+  const keyHorizons = [5, 15, 30, 60, 80, 120];
+  const filteredPredictions = keyHorizons.map((target) => {
+    return analysis.predictions.reduce((best, p) => {
+      const diff = Math.abs(p.horizonDays - target);
+      return diff < Math.abs(best.horizonDays - target) ? p : best;
+    }, analysis.predictions[0]);
+  }).filter((p, i, arr) => arr.findIndex((x) => x.horizonDays === p.horizonDays) === i);
 
   return (
     <div className="space-y-6">

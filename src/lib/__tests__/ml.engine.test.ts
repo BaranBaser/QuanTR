@@ -14,6 +14,7 @@ import {
   calcVolatility,
   findSupportResistance,
   detectRegime,
+  interpolatePredictions,
 } from "../ml.engine";
 
 // Yardımcı fonksiyonlar
@@ -243,5 +244,49 @@ describe("detectRegime", () => {
     const closes = Array.from({ length: 60 }, (_, i) => 100 + i); // kesin yükselen
     const regime = detectRegime(closes, 10);
     expect(["TRENDING_UP", "TRENDING_DOWN", "RANGING"]).toContain(regime);
+  });
+});
+
+describe("interpolatePredictions", () => {
+  const basePredictions = [
+    { horizonDays: 1, expectedPrice: 100, lowerBand: 95, upperBand: 105, expectedReturnPercent: 0, confidence: 80, rmse: 2, models: [] },
+    { horizonDays: 5, expectedPrice: 102, lowerBand: 96, upperBand: 108, expectedReturnPercent: 2, confidence: 75, rmse: 3, models: [] },
+    { horizonDays: 20, expectedPrice: 108, lowerBand: 98, upperBand: 118, expectedReturnPercent: 8, confidence: 65, rmse: 5, models: [] },
+    { horizonDays: 60, expectedPrice: 115, lowerBand: 100, upperBand: 130, expectedReturnPercent: 15, confidence: 55, rmse: 8, models: [] },
+    { horizonDays: 120, expectedPrice: 125, lowerBand: 105, upperBand: 145, expectedReturnPercent: 25, confidence: 45, rmse: 12, models: [] },
+  ];
+
+  it("hedef sayısında tahmin üretir", () => {
+    const result = interpolatePredictions(basePredictions, 10);
+    expect(result).toHaveLength(10);
+  });
+
+  it("ilk ve son tahminler orijinale eşittir", () => {
+    const result = interpolatePredictions(basePredictions, 20);
+    expect(result[0].expectedPrice).toBeCloseTo(100, 1);
+    expect(result[result.length - 1].expectedPrice).toBeCloseTo(125, 1);
+  });
+
+  it("monoton artan fiyatlar üretir", () => {
+    const result = interpolatePredictions(basePredictions, 15);
+    for (let i = 1; i < result.length; i++) {
+      expect(result[i].expectedPrice).toBeGreaterThanOrEqual(result[i - 1].expectedPrice);
+    }
+  });
+
+  it("confidence 10-99 arasında kalır", () => {
+    const result = interpolatePredictions(basePredictions, 30);
+    for (const p of result) {
+      expect(p.confidence).toBeGreaterThanOrEqual(10);
+      expect(p.confidence).toBeLessThanOrEqual(99);
+    }
+  });
+
+  it("lowerBand < expectedPrice < upperBand", () => {
+    const result = interpolatePredictions(basePredictions, 12);
+    for (const p of result) {
+      expect(p.lowerBand).toBeLessThanOrEqual(p.expectedPrice);
+      expect(p.upperBand).toBeGreaterThanOrEqual(p.expectedPrice);
+    }
   });
 });

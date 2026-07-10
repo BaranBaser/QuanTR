@@ -29,26 +29,26 @@ function BacktestSection({ symbol }: { symbol: string }) {
       try {
         const closes = historyData.map((d: any) => d.close);
         const horizon = 5;
-        const testPoints = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+        const testPoints = [0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
           .map((p) => Math.floor(closes.length * p))
           .filter((i) => i + horizon < closes.length);
 
-        const results = await Promise.all(
-          testPoints.map(async (idx) => {
-            const slice = historyData.slice(0, idx + 1);
-            const result = await runAIEngine(slice, symbol, slice.length);
-            const actual = closes[idx + horizon];
-            const predicted5d = result.predictions.find((p) => p.horizonDays === 5);
-            return {
-              date: historyData[idx].date,
-              actualAtHorizon: actual,
-              predicted: predicted5d?.expectedPrice ?? closes[idx],
-              lowerBand: predicted5d?.lowerBand ?? closes[idx],
-              upperBand: predicted5d?.upperBand ?? closes[idx],
-              confidence: predicted5d?.confidence ?? 50,
-            };
-          })
-        );
+        const results = [];
+        for (const idx of testPoints) {
+          const slice = historyData.slice(0, idx + 1);
+          const result = await runAIEngine(slice, symbol, slice.length);
+          const actual = closes[idx + horizon];
+          const predicted5d = result.predictions.find((p) => p.horizonDays === 5)
+            || result.predictions.reduce((best, p) => Math.abs(p.horizonDays - 5) < Math.abs(best.horizonDays - 5) ? p : best, result.predictions[0]);
+          results.push({
+            date: historyData[idx].date,
+            actualAtHorizon: actual,
+            predicted: predicted5d?.expectedPrice ?? closes[idx],
+            lowerBand: predicted5d?.lowerBand ?? closes[idx],
+            upperBand: predicted5d?.upperBand ?? closes[idx],
+            confidence: predicted5d?.confidence ?? 50,
+          });
+        }
         return results;
       } catch { return null; }
     },
@@ -115,10 +115,10 @@ function BacktestSection({ symbol }: { symbol: string }) {
         <TrendingUp className="w-5 h-5 text-primary" /> Walk-Forward Backtest (Son 1 Ay Tahminleri)
       </h2>
       <p className="text-xs text-muted-foreground mb-4">
-        Motor her 5 günde bir geçmişe bakarak 5 gün sonraki fiyatı tahmin etti. Gerçek fiyatla karşılaştırıldı.
+        Motor 8 farklı geçmiş noktada 5 gün sonraki fiyatı tahmin ederek test etti. Gerçek fiyatla karşılaştırıldı.
       </p>
       {isLoading ? (
-        <div className="text-muted-foreground animate-pulse text-sm">Walk-forward backtest çalıştırılıyor... (10 farklı zaman dilimi test ediliyor)</div>
+        <div className="text-muted-foreground animate-pulse text-sm">Walk-forward backtest çalıştırılıyor... (8 farklı zaman dilimi test ediliyor)</div>
       ) : chartData.length === 0 ? (
         <div className="text-muted-foreground text-sm">Backtest verisi oluşturulamadı.</div>
       ) : (

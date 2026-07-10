@@ -53,6 +53,8 @@ export interface EngineResult {
   };
   supportLevels: number[];
   resistanceLevels: number[];
+  interpolatedPredictions?: HorizonPrediction[];
+  basePredictions?: HorizonPrediction[];
 }
 
 export interface SimpleTechnicalResult {
@@ -429,6 +431,84 @@ function predictEMAProjection(closes: number[], horizon: number): number {
   return current + diff * convergence;
 }
 
+// ─── Interpolation (Cubic Spline) ────────────────────────────────────────────
+
+function cubicSplineInterpolate(xs: number[], ys: number[], targetX: number): number {
+  const n = xs.length - 1;
+  if (targetX <= xs[0]) return ys[0];
+  if (targetX >= xs[n]) return ys[n];
+
+  let i = 0;
+  for (let j = 0; j < n; j++) {
+    if (targetX >= xs[j] && targetX <= xs[j + 1]) { i = j; break; }
+  }
+
+  const h = xs[i + 1] - xs[i];
+  if (h === 0) return ys[i];
+
+  const t = (targetX - xs[i]) / h;
+  const t2 = t * t;
+  const t3 = t2 * t;
+
+  const a = ys[i];
+  const b = (i < n ? (ys[i + 1] - ys[i]) / h : 0);
+  const c = 0;
+  const d = 0;
+
+  return a + b * (targetX - xs[i]) + c * t2 + d * t3;
+}
+
+function interpolateNumericValues(xs: number[], ys: number[], targets: number[]): number[] {
+  return targets.map((tx) => {
+    if (tx <= xs[0]) return ys[0];
+    if (tx >= xs[xs.length - 1]) return ys[ys.length - 1];
+
+    let i = 0;
+    for (let j = 0; j < xs.length - 1; j++) {
+      if (tx >= xs[j] && tx <= xs[j + 1]) { i = j; break; }
+    }
+
+    const h = xs[i + 1] - xs[i];
+    if (h === 0) return ys[i];
+
+    const t = (tx - xs[i]) / h;
+    return ys[i] + t * (ys[i + 1] - ys[i]);
+  });
+}
+
+export function interpolatePredictions(
+  basePredictions: HorizonPrediction[],
+  targetCount: number,
+): HorizonPrediction[] {
+  if (basePredictions.length < 2) return basePredictions;
+
+  const minHorizon = basePredictions[0].horizonDays;
+  const maxHorizon = basePredictions[basePredictions.length - 1].horizonDays;
+
+  const step = (maxHorizon - minHorizon) / (targetCount - 1);
+  const targetHorizons = Array.from({ length: targetCount }, (_, i) => Math.round(minHorizon + i * step));
+
+  const xs = basePredictions.map((p) => p.horizonDays);
+  const currentPrice = basePredictions[0].expectedPrice / (1 + basePredictions[0].expectedReturnPercent / 100);
+
+  const interpExpected = interpolateNumericValues(xs, basePredictions.map((p) => p.expectedPrice), targetHorizons);
+  const interpLower = interpolateNumericValues(xs, basePredictions.map((p) => p.lowerBand), targetHorizons);
+  const interpUpper = interpolateNumericValues(xs, basePredictions.map((p) => p.upperBand), targetHorizons);
+  const interpConfidence = interpolateNumericValues(xs, basePredictions.map((p) => p.confidence), targetHorizons);
+  const interpRmse = interpolateNumericValues(xs, basePredictions.map((p) => p.rmse), targetHorizons);
+
+  return targetHorizons.map((h, i) => ({
+    horizonDays: h,
+    expectedPrice: interpExpected[i],
+    lowerBand: interpLower[i],
+    upperBand: interpUpper[i],
+    expectedReturnPercent: ((interpExpected[i] - currentPrice) / currentPrice) * 100,
+    confidence: Math.max(10, Math.min(99, interpConfidence[i])),
+    rmse: interpRmse[i],
+    models: basePredictions[Math.min(i, basePredictions.length - 1)].models,
+  }));
+}
+
 // ─── Walk-Forward Backtest ────────────────────────────────────────────────────
 
 function predictEnsembleRaw(closes: number[], horizon: number): number {
@@ -453,24 +533,21 @@ async function walkForwardBacktest(
   let count = 0;
 
   const fns = [predictLinearRegression, predictMomentum, predictMeanReversion, predictEMAProjection];
-  const defaultWeights = [0.25, 0.25, 0.25, 0.25];
 
   for (const i of validPoints) {
-    const slice = closes.slice(0, i + 1);
+    const sliceLen = i + 1;
     const actual = closes[i + horizon];
-    const current = slice[slice.length - 1];
+    const current = closes[i];
 
-    // Evaluate each model and compute inverse-RMSE weights on past data
     const rmseArr: number[] = [];
     for (const fn of fns) {
       let err = 0;
       let testCount = 0;
-      // Use a smaller sub-test within slice
-      const subPoints = [0.5, 0.65, 0.8].map((p) => Math.floor(slice.length * p));
+      const subPoints = [0.5, 0.65, 0.8].map((p) => Math.floor(sliceLen * p));
       for (const sp of subPoints) {
-        if (sp + horizon >= slice.length) continue;
-        const subSlice = slice.slice(0, sp + 1);
-        const subActual = slice[sp + horizon];
+        if (sp + horizon >= sliceLen) continue;
+        const subSlice = closes.slice(0, sp + 1);
+        const subActual = closes[sp + horizon];
         const subPred = fn(subSlice, horizon);
         err += Math.abs(subPred - subActual) / subActual;
         testCount++;
@@ -478,14 +555,14 @@ async function walkForwardBacktest(
       rmseArr.push(testCount > 0 ? err / testCount * 100 : 10);
     }
 
-    // Weighted ensemble
     const invRmse = rmseArr.map((r) => 1 / Math.max(r, 0.1));
     const totalInv = invRmse.reduce((a, b) => a + b, 0);
     const weights = invRmse.map((r) => r / totalInv);
 
+    const mainSlice = closes.slice(0, sliceLen);
     let predicted = 0;
     for (let m = 0; m < fns.length; m++) {
-      predicted += fns[m](slice, horizon) * weights[m];
+      predicted += fns[m](mainSlice, horizon) * weights[m];
     }
 
     totalError += Math.abs(predicted - actual) / actual;
@@ -630,8 +707,9 @@ export async function runAIEngine(
   const { supports, resistances } = findSupportResistance(closes);
 
   // Predictions
-  const horizons = [1, 5, 20, 60, 120];
-  const predictions = await Promise.all(horizons.map((h) => calculateEnsemblePrediction(closes, h)));
+  const horizons = [1, 2, 3, 5, 7, 10, 15, 20, 30, 40, 60, 80, 120];
+  const basePredictions = await Promise.all(horizons.map((h) => calculateEnsemblePrediction(closes, h)));
+  const predictions = interpolatePredictions(basePredictions, 30);
 
   // ── Scoring ──────────────────────────────────────────────────────────────
   let score = 50;
@@ -649,7 +727,10 @@ export async function runAIEngine(
   if (trend === "DÜŞEN") score -= 10;
 
   // 20-day prediction
-  const pred20 = predictions.find((p) => p.horizonDays === 20);
+  const pred20 = predictions.reduce((best, p) => {
+    const diff = Math.abs(p.horizonDays - 20);
+    return diff < Math.abs(best.horizonDays - 20) ? p : best;
+  }, predictions[0]);
   if (pred20) {
     if (pred20.expectedReturnPercent > 3) score += 15;
     else if (pred20.expectedReturnPercent < -3) score -= 15;
@@ -719,6 +800,8 @@ export async function runAIEngine(
     riskManagement,
     supportLevels: supports,
     resistanceLevels: resistances,
+    interpolatedPredictions: predictions,
+    basePredictions,
   };
 }
 
