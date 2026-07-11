@@ -35,7 +35,7 @@ function NewsPage() {
     queryKey: ["news", selectedSymbol],
     queryFn: async () => {
       // Varsayılan olarak en popüler (THYAO) veya seçili hisseyi getirir
-      try { return await fetchNewsFn({ data: { symbol: selectedSymbol || "THYAO" } }); } catch { return []; }
+      try { return await fetchNewsFn({ data: { symbol: selectedSymbol || "THYAO" } }); } catch (e) { console.warn("fetchNews error:", e); return []; }
     },
     staleTime: 300_000,
     throwOnError: false,

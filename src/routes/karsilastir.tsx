@@ -156,7 +156,7 @@ function KarsilastirPage() {
     try {
       const r = await fetchHistory({ data: { symbol: s, range: "6mo" } });
       return r ?? [];
-    } catch {
+    } catch (e) { console.warn("fetchComparisonHistory error:", e);
       return [];
     }
   }, [fetchHistory]);

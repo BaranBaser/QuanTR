@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 from models import run_all_models
@@ -32,10 +32,14 @@ class PredictRequest(BaseModel):
 def read_root():
     return {"status": "ok", "message": "Stockbear Advanced ML API is running"}
 
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+
 @app.post("/predict")
 def predict(req: PredictRequest):
     if len(req.data) < 30:
-        return {"error": "Not enough data for prediction. Minimum 30 bars required."}
+        raise HTTPException(status_code=422, detail="Not enough data for prediction. Minimum 30 bars required.")
     
     ohlcv = [bar.model_dump() for bar in req.data]
     predictions = run_all_models(ohlcv, req.horizons)

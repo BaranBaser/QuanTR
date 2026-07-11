@@ -17,7 +17,7 @@ function BacktestSection({ symbol }: { symbol: string }) {
   const { data: historyData, isLoading: historyLoading } = useQuery({
     queryKey: ["backtest-history", symbol],
     queryFn: async () => {
-      try { return await fetchHistory({ data: { symbol, range: "1y" } }); } catch { return []; }
+      try { return await fetchHistory({ data: { symbol, range: "1y" } }); } catch (e) { console.warn("fetchBacktestHistory error:", e); return []; }
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -50,7 +50,7 @@ function BacktestSection({ symbol }: { symbol: string }) {
           });
         }
         return results;
-      } catch { return null; }
+      } catch (e) { console.warn("walkForwardBacktest error:", e); return null; }
     },
     enabled: !!historyData && historyData.length >= 60,
     staleTime: 5 * 60 * 1000,
@@ -179,7 +179,7 @@ function AIEnginePage() {
   const { data: topAiData, isLoading: topLoading } = useQuery({
     queryKey: ["ai-top-analysis"],
     queryFn: async () => {
-      try { return await fetchTopAi(); } catch { return []; }
+      try { return await fetchTopAi(); } catch (e) { console.warn("fetchTechnicalSignals error:", e); return []; }
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -187,7 +187,7 @@ function AIEnginePage() {
   const { data: aiData, isLoading } = useQuery({
     queryKey: ["ai-analysis-full", selectedSymbol],
     queryFn: async () => {
-      try { return await fetchAi({ data: { symbol: selectedSymbol, dataCount: 252 } }); } catch { return null; }
+      try { return await fetchAi({ data: { symbol: selectedSymbol, dataCount: 252 } }); } catch (e) { console.warn("fetchSingleAiAnalysis error:", e); return null; }
     },
     staleTime: 5 * 60 * 1000,
   });

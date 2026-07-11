@@ -37,7 +37,7 @@ function RaporPage() {
       try {
         const r = await fetchHistory({ data: { symbol, range: "6mo" } });
         return r ?? [];
-      } catch {
+      } catch (e) { console.warn("fetchRaporHistory error:", e);
         return [];
       }
     },

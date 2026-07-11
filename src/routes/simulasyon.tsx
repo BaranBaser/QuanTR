@@ -122,14 +122,14 @@ function SimPage() {
         <div className="rounded-xl border border-border bg-card p-5 space-y-4">
           <div className="flex items-center gap-2"><Beaker className="w-4 h-4 text-primary" /><div className="font-semibold text-sm">İşlem Yap</div></div>
           <div>
-            <label className="text-xs text-muted-foreground">Hisse</label>
-            <select value={symbol} onChange={(e) => setSymbol(e.target.value)} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm">
+            <label htmlFor="simSymbol" className="text-xs text-muted-foreground">Hisse</label>
+            <select id="simSymbol" value={symbol} onChange={(e) => setSymbol(e.target.value)} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm">
               {stocks.map((s) => <option key={s.symbol}>{s.symbol}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Adet</label>
-            <input type="number" value={lots} onChange={(e) => setLots(+e.target.value)} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
+            <label htmlFor="simLots" className="text-xs text-muted-foreground">Adet</label>
+            <input id="simLots" type="number" value={lots} onChange={(e) => setLots(+e.target.value)} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
           </div>
           <div className="text-xs text-muted-foreground">Toplam: <span className="font-semibold text-foreground">{(currentPrice * lots).toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL</span></div>
           <div className="flex gap-2">

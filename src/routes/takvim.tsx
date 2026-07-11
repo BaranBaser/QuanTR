@@ -25,7 +25,7 @@ function CalendarPage() {
   const { data: events = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ["calendar"],
     queryFn: async () => {
-      try { return await fetchCalFn({}); } catch { return []; }
+      try { return await fetchCalFn({}); } catch (e) { console.warn("fetchCalendar error:", e); return []; }
     },
     staleTime: 600_000,
     throwOnError: false,

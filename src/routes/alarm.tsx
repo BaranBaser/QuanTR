@@ -56,7 +56,7 @@ function AlarmPage() {
           } catch (e) { console.warn("Alarm price fetch error:", sym, e); }
         }
         return prices;
-      } catch {
+      } catch (e) { console.warn("alarmPriceFetch error:", e);
         return {} as Record<string, number>;
       }
     },
@@ -122,8 +122,9 @@ function AlarmPage() {
 
       <form onSubmit={submit} className="rounded-xl border border-border bg-card p-4 flex flex-wrap gap-3 items-end">
         <div className="flex-1 min-w-0">
-          <label className="text-xs text-muted-foreground">Hisse</label>
+          <label htmlFor="alarmSymbol" className="text-xs text-muted-foreground">Hisse</label>
           <input
+            id="alarmSymbol"
             value={form.symbol}
             onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })}
             placeholder="Örn: THYAO"
@@ -131,8 +132,9 @@ function AlarmPage() {
           />
         </div>
         <div className="flex-1 min-w-0">
-          <label className="text-xs text-muted-foreground">Alarm Tipi</label>
+          <label htmlFor="alarmType" className="text-xs text-muted-foreground">Alarm Tipi</label>
           <select
+            id="alarmType"
             value={form.type}
             onChange={(e) => setForm({ ...form, type: e.target.value as "above" | "below" })}
             className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm"
@@ -142,8 +144,9 @@ function AlarmPage() {
           </select>
         </div>
         <div className="flex-1 min-w-0">
-          <label className="text-xs text-muted-foreground">Hedef Fiyat (TL)</label>
+          <label htmlFor="alarmTarget" className="text-xs text-muted-foreground">Hedef Fiyat (TL)</label>
           <input
+            id="alarmTarget"
             type="number"
             step="0.01"
             value={form.targetPrice}

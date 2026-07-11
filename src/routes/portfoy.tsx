@@ -112,7 +112,7 @@ function PortfoyPage() {
       try {
         const h = await fetchHistory({ data: { symbol: "XU100.IS", range: "1mo" } });
         return h ?? [];
-      } catch { return []; }
+      } catch (e) { console.warn("fetchBenchmarkHistory error:", e); return []; }
     },
     staleTime: 300_000,
     throwOnError: false,

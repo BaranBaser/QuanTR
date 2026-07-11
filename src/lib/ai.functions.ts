@@ -432,7 +432,7 @@ export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
       const history = result.timestamp.map((_ts: number, i: number) => ({
         close: quotes.close[i],
         volume: quotes.volume[i],
-      })).filter((h: any) => h.close != null);
+      })).filter((h: { close: number; volume: number }) => h.close != null);
 
       if (history.length < 30) return null;
       
@@ -445,53 +445,41 @@ export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
   });
 
 // Fetch history and run Simple Technical Engine for all symbols (AL/SAT only)
-// Limit to top 100 BIST symbols + global to reduce API load
+// Uses v8 chart API with concurrency-limited parallel fetches
 export const fetchTechnicalSignals = createServerFn({ method: "GET" })
   .validator(() => ({}))
   .handler(async () => {
-    const bist = BIST_SYMBOLS.slice(0, 100).map((s) => `${s}.IS`);
+    const bist = BIST_SYMBOLS.slice(0, 80).map((s) => `${s}.IS`);
     const allSymbols = Array.from(new Set([...bist, ...GLOBAL_SYMBOLS]));
-    const results = [];
+    const results: { symbol: string; analysis: { decision: string; rawScore: number; currentPrice: number } }[] = [];
     
-    // Batch fetch (30 at a time)
-    for (let i = 0; i < allSymbols.length; i += 30) {
-      const batch = allSymbols.slice(i, i + 30);
-      try {
-        const url = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${batch.join(",")}&range=3mo&interval=1d`;
-        const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-        
-        if (res.ok) {
+    const CONCURRENCY = 10;
+    for (let i = 0; i < allSymbols.length; i += CONCURRENCY) {
+      const batch = allSymbols.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.allSettled(
+        batch.map(async (fullSymbol) => {
+          const sym = fullSymbol.replace(".IS", "");
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${fullSymbol}?range=3mo&interval=1d`;
+          const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+          if (!res.ok) return null;
           const json = await res.json();
-          if (json.spark && json.spark.result) {
-            for (const symResult of json.spark.result) {
-              const rawSymbol = symResult.symbol;
-              const sym = rawSymbol.replace(".IS", ""); // Display without suffix
-              
-              const resp = symResult.response?.[0];
-              if (!resp?.timestamp || !resp?.indicators?.quote?.[0]?.close) continue;
-              
-              const closes = resp.indicators.quote[0].close as number[];
-              const history = closes.map(c => ({ close: c })).filter(h => h.close != null);
-              
-              if (history.length < 30) continue;
-              
-              const analysis = runSimpleTechnicalEngine(history, sym);
-              
-              // Return ONLY "AL" and "SAT" signals
-              if (analysis.decision === "AL" || analysis.decision === "SAT") {
-                results.push({ symbol: sym, analysis });
-              }
-            }
+          const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close as number[] | undefined;
+          if (!closes) return null;
+          const history = closes.filter((c): c is number => c != null).map((c) => ({ close: c }));
+          if (history.length < 30) return null;
+          const analysis = runSimpleTechnicalEngine(history, sym);
+          if (analysis.decision === "AL" || analysis.decision === "SAT") {
+            return { symbol: sym, analysis };
           }
-        }
-      } catch (e) {
-        // Ignore batch errors and continue
+          return null;
+        })
+      );
+      for (const r of batchResults) {
+        if (r.status === "fulfilled" && r.value) results.push(r.value);
       }
     }
     
-    // Sort by highest score first
     results.sort((a, b) => b.analysis.rawScore - a.analysis.rawScore);
-    
     return results;
   });
 

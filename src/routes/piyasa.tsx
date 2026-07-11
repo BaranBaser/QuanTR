@@ -32,7 +32,7 @@ function PiyasaPage() {
   const { data: liveData = [], isLoading, refetch, isFetching, isError } = useQuery({
     queryKey: ["bist-data"],
     queryFn: async () => {
-      try { return await fetchBist({}); } catch { return []; }
+      try { return await fetchBist({}); } catch (e) { console.warn("fetchBistData error:", e); return []; }
     },
     staleTime: 60_000,
     refetchInterval: 120_000,
@@ -153,6 +153,7 @@ function PiyasaPage() {
             placeholder="Hisse ara... (THY, ASELS, Garanti)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            aria-label="Hisse ara"
             className="w-full bg-secondary border border-border rounded-lg pl-10 pr-4 py-2.5 text-sm focus:border-primary/60 focus:outline-none"
           />
         </div>

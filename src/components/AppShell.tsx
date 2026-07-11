@@ -4,7 +4,7 @@ import {
   Beaker, Newspaper, CalendarDays, Settings, Search, Bell, Sun, Moon, ArrowRight, Menu, X, BellRing,
   CandlestickChart, GitCompareArrows, FileText,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import logo from "@/assets/stockbear-logo.png";
 import aiChip from "@/assets/ai-chip.jpg";
@@ -44,6 +44,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [dark, setDark] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem("theme") : null;
@@ -85,7 +90,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               value={q}
               onChange={(e) => { setQ(e.target.value); setOpen(true); }}
               onFocus={() => setOpen(true)}
-              onBlur={() => setTimeout(() => setOpen(false), 150)}
+              onBlur={() => setTimeout(() => { if (mountedRef.current) setOpen(false); }, 150)}
               placeholder="Hisse ara..."
               aria-label="Hisse ara"
               className="w-full bg-secondary/60 border border-border rounded-lg pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-primary/40"

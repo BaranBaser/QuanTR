@@ -61,7 +61,7 @@ function ScreenerPage() {
   const { data: liveData = [], isLoading, refetch, isFetching, isError } = useQuery({
     queryKey: ["bist-data"],
     queryFn: async () => {
-      try { return await fetchBist({}); } catch { return []; }
+      try { return await fetchBist({}); } catch (e) { console.warn("fetchBistData error:", e); return []; }
     },
     staleTime: 60_000,
     refetchInterval: 120_000,

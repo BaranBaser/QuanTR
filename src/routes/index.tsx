@@ -44,7 +44,7 @@ function Dashboard() {
   const { data: indexes = [], isLoading: loadingIdx } = useQuery({
     queryKey: ["indexes"],
     queryFn: async () => {
-      try { return await fetchIdx({}); } catch { return []; }
+      try { return await fetchIdx({}); } catch (e) { console.warn("fetchIndexes error:", e); return []; }
     },
     staleTime: 60_000,
     refetchInterval: 120_000,
@@ -54,7 +54,7 @@ function Dashboard() {
   const { data: bistData = [] } = useQuery({
     queryKey: ["bist-data"],
     queryFn: async () => {
-      try { return await fetchBist({}); } catch { return []; }
+      try { return await fetchBist({}); } catch (e) { console.warn("fetchBistData error:", e); return []; }
     },
     staleTime: 300_000,
     throwOnError: false,
@@ -63,7 +63,7 @@ function Dashboard() {
   const { data: news = [] } = useQuery({
     queryKey: ["news-home"],
     queryFn: async () => {
-      try { return await fetchNewsFn({}); } catch { return []; }
+      try { return await fetchNewsFn({}); } catch (e) { console.warn("fetchNews error:", e); return []; }
     },
     staleTime: 300_000,
     throwOnError: false,
@@ -175,6 +175,7 @@ function Dashboard() {
             <h3 className="font-semibold">Popüler Hisseler</h3>
             <Link to="/piyasa" className="text-xs text-primary">Tümü ({displayStocks.length} hisse)</Link>
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs text-muted-foreground text-left">
@@ -200,6 +201,7 @@ function Dashboard() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* Haberler */}

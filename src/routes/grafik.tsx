@@ -80,7 +80,7 @@ function GrafikPage() {
       try {
         const r = await fetchHistory({ data: { symbol, range } });
         return r ?? [];
-      } catch {
+      } catch (e) { console.warn("fetchStockHistory error:", e);
         return [];
       }
     },
@@ -303,6 +303,7 @@ function GrafikPage() {
               }
             }}
             placeholder="Hisse kodu girin..."
+            aria-label="Hisse kodu girin"
             className="w-full bg-secondary/60 border border-border rounded-lg pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-primary/40"
           />
         </div>

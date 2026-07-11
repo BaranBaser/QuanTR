@@ -38,7 +38,7 @@ function AnalizPage() {
       try {
         const result = await fetchSingle({ data: { symbol: selectedSymbol } });
         return result;
-      } catch {
+      } catch (e) { console.warn("fetchSingleStock error:", e);
         return null;
       }
     },
@@ -52,7 +52,7 @@ function AnalizPage() {
       try {
         const result = await fetchHistory({ data: { symbol: selectedSymbol, range: timeRange } });
         return result ?? [];
-      } catch {
+      } catch (e) { console.warn("fetchStockHistory error:", e);
         return [];
       }
     },
@@ -63,7 +63,7 @@ function AnalizPage() {
   const { data: liveData = [] } = useQuery({
     queryKey: ["bist-data"],
     queryFn: async () => {
-      try { return await fetchBist({}); } catch { return []; }
+      try { return await fetchBist({}); } catch (e) { console.warn("fetchBistData error:", e); return []; }
     },
     staleTime: 60_000,
   });
@@ -71,7 +71,7 @@ function AnalizPage() {
   const { data: aiData, isLoading: loadingAi } = useQuery({
     queryKey: ["ai-analysis", selectedSymbol],
     queryFn: async () => {
-      try { return await fetchAi({ data: { symbol: selectedSymbol } }); } catch { return null; }
+      try { return await fetchAi({ data: { symbol: selectedSymbol } }); } catch (e) { console.warn("fetchAiAnalysis error:", e); return null; }
     },
     enabled: showAiAnalysis,
     staleTime: 5 * 60 * 1000,
