@@ -429,7 +429,7 @@ export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
       if (!result?.timestamp || !result?.indicators?.quote?.[0]) return null;
       
       const quotes = result.indicators.quote[0];
-      const history = result.timestamp.map((ts: number, i: number) => ({
+      const history = result.timestamp.map((_ts: number, i: number) => ({
         close: quotes.close[i],
         volume: quotes.volume[i],
       })).filter((h: any) => h.close != null);

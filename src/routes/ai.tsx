@@ -68,7 +68,6 @@ function BacktestSection({ symbol }: { symbol: string }) {
       }));
     }
 
-    const closes = historyData.map((d: { close: number }) => d.close);
     const predictedMap = new Map<string, typeof walkForwardData[0]>();
     for (const p of walkForwardData) {
       const key = new Date(p.date).toLocaleDateString("tr-TR", { month: "short", day: "numeric" });

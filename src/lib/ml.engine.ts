@@ -495,16 +495,6 @@ export function interpolatePredictions(
 
 // ─── Walk-Forward Backtest ────────────────────────────────────────────────────
 
-function predictEnsembleRaw(closes: number[], horizon: number): number {
-  const models = [predictRidgeRegression, predictMomentum, predictMeanReversion, predictEMAProjection];
-  const weights = [0.25, 0.25, 0.25, 0.25];
-  let result = 0;
-  for (let i = 0; i < models.length; i++) {
-    result += models[i](closes, horizon) * weights[i];
-  }
-  return result;
-}
-
 async function walkForwardBacktest(
   closes: number[],
   horizon: number,
@@ -654,7 +644,7 @@ function computeRiskManagement(
 
 export async function runAIEngine(
   history: { close: number; volume: number }[],
-  symbol: string,
+  _symbol: string,
   dataCount: number = 252,
 ): Promise<EngineResult> {
   const slicedHistory = history.slice(-dataCount);
@@ -793,14 +783,13 @@ export async function runAIEngine(
 
 export function runSimpleTechnicalEngine(
   history: { close: number; high?: number; low?: number; volume?: number }[],
-  symbol: string,
+  _symbol: string,
 ): SimpleTechnicalResult {
   const closes = history.map((h) => h.close);
   const currentPrice = closes[closes.length - 1];
 
   const highs = history.map((h) => h.high ?? h.close * 1.01);
   const lows = history.map((h) => h.low ?? h.close * 0.99);
-  const volumes = history.map((h) => h.volume ?? 0);
 
   const rsi = calcRSI(closes, 14);
   const sma20 = calcSMA(closes, 20);

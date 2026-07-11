@@ -2,10 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell, PageHeader, Sparkline, genLine } from "@/components/AppShell";
 import { stocks, SECTOR_MAP } from "@/lib/market-data";
 import { useServerFn } from "@tanstack/react-start";
-import { fetchBistData, fetchStockHistory } from "@/lib/ai.functions";
+import { fetchBistData } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, TrendingDown, RefreshCw, BarChart3, Activity, Zap, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, AlertCircle } from "lucide-react";
-import type { StockData } from "@/lib/ai.functions";
+import { TrendingUp, TrendingDown, RefreshCw, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, AlertCircle } from "lucide-react";
 import { AiAnalysisTable } from "@/components/AiAnalysisTable";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useMemo, useState } from "react";
@@ -29,7 +28,6 @@ function PiyasaPage() {
   const [sortKey, setSortKey] = useState<SortKey | null>("symbol");
   const [sortAsc, setSortAsc] = useState(true);
   const fetchBist = useServerFn(fetchBistData);
-  const fetchHistory = useServerFn(fetchStockHistory);
 
   const { data: liveData = [], isLoading, refetch, isFetching, isError } = useQuery({
     queryKey: ["bist-data"],
@@ -40,17 +38,6 @@ function PiyasaPage() {
     refetchInterval: 120_000,
     throwOnError: false,
   });
-
-  const { data: indexHistory = [] } = useQuery({
-    queryKey: ["index-history", "XU100.IS", "1mo"],
-    queryFn: async () => {
-      try { const r = await fetchHistory({ data: { symbol: "XU100.IS", range: "1mo" } }); return r ?? []; } catch { return []; }
-    },
-    staleTime: 300_000,
-    throwOnError: false,
-  });
-  
-  const indexCloses = indexHistory.map((h: { close: number }) => h.close).filter(Boolean);
 
   const displayData = liveData.length > 0
     ? liveData.map((d) => ({
@@ -172,7 +159,7 @@ function PiyasaPage() {
         
         <Popover>
           <PopoverTrigger asChild>
-            <button className="relative flex items-center justify-center w-11 h-11 rounded-lg border border-border bg-secondary hover:border-primary/40 transition-colors">
+            <button aria-label="Filtreler" className="relative flex items-center justify-center w-11 h-11 rounded-lg border border-border bg-secondary hover:border-primary/40 transition-colors">
               <Filter className="w-5 h-5 text-foreground" />
               <div className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-md">+</div>
             </button>

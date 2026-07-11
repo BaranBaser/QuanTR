@@ -1,8 +1,7 @@
 import { Brain, CheckCircle2, AlertTriangle, AlertCircle, Target, Zap, Activity, Shield, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
-import type { EngineResult, HorizonPrediction, ModelPrediction } from "@/lib/ml.engine";
+import type { EngineResult, HorizonPrediction } from "@/lib/ml.engine";
 
-type PredictionModel = ModelPrediction;
 type Prediction = HorizonPrediction;
 type AnalysisData = EngineResult;
 

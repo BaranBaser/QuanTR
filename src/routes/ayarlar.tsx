@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import {
-  User, Bell, Shield, Palette, Database, Info, Check, Sun, Moon,
+  User, Bell, Palette, Database, Info, Check, Sun, Moon,
   LogOut, Mail, AlertCircle, Loader2, Wallet, Trash2, Download,
-  RefreshCw, Lock, Eye, EyeOff, HardDrive, Clock, Github,
+  RefreshCw, Eye, EyeOff, HardDrive, Clock, Github,
   Smartphone, Volume2, Monitor, Sparkles, Newspaper,
 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -131,7 +131,7 @@ function AccountSection() {
   };
 
   const firebaseUpdateProfileLocal = async (u: unknown, displayName: string) => {
-    try { await firebaseUpdateProfile(u, { displayName }); } catch {}
+    try { await firebaseUpdateProfile(u, { displayName }); } catch (e) { console.warn("Profile update error:", e); }
   };
 
   const handleReset = async () => {
@@ -194,7 +194,7 @@ function AccountSection() {
               <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••" required minLength={6}
                 className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-              <button type="button" onClick={() => setShowPassword(!showPassword)}
+              <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -268,13 +268,11 @@ function AccountSection() {
 // ─── Portfolio Settings ─────────────────────────────────────────────────────
 
 function PortfolioSettings() {
-  const [mounted, setMounted] = useState(false);
   const [settings, setSettings] = useState({ defaultLots: 1, currency: "TRY", view: "table", showPnl: true, showPercent: true });
 
   useEffect(() => {
     const raw = localStorage.getItem("stockbear.portfolioSettings");
-    if (raw) try { setSettings(JSON.parse(raw)); } catch {}
-    setMounted(true);
+    if (raw) try { setSettings(JSON.parse(raw)); } catch (e) { console.warn("Portfolio settings parse error:", e); }
   }, []);
 
   const save = (next: typeof settings) => {
@@ -347,7 +345,7 @@ function NotificationSettings() {
 
   useEffect(() => {
     const raw = localStorage.getItem("stockbear.notify");
-    if (raw) try { setSettings(JSON.parse(raw)); } catch {}
+    if (raw) try { setSettings(JSON.parse(raw)); } catch (e) { console.warn("Notify settings parse error:", e); }
   }, []);
 
   const save = (next: typeof settings) => {

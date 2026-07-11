@@ -59,7 +59,7 @@ function PortfoyPage() {
         try {
           const h = await fetchHistory({ data: { symbol: item.symbol, range: "3mo" } });
           if (h && h.length > 0) result[item.symbol] = h.map((d: { close: number }) => d.close);
-        } catch {}
+        } catch (e) { console.warn("History fetch error:", item.symbol, e); }
       }
       return result;
     },

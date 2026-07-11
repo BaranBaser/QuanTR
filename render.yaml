@@ -2,6 +2,7 @@ services:
   - type: web
     name: stockbear
     env: docker
+    healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production

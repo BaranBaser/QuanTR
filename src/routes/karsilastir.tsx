@@ -267,6 +267,7 @@ function KarsilastirPage() {
             />
             <button
               onClick={addSymbol}
+              aria-label="Hisse ekle"
               className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm hover:bg-primary/90"
             >
               <Plus className="w-4 h-4" />

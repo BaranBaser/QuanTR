@@ -53,7 +53,7 @@ function AlarmPage() {
           try {
             const result = await fetchSingle({ data: { symbol: sym } });
             if (result?.price) prices[sym] = result.price;
-          } catch {}
+          } catch (e) { console.warn("Alarm price fetch error:", sym, e); }
         }
         return prices;
       } catch {
@@ -188,10 +188,10 @@ function AlarmPage() {
                         {livePrice.toFixed(2)} TL
                       </span>
                     )}
-                    <button onClick={() => toggle(a.id)} className="text-muted-foreground hover:text-primary">
+                    <button onClick={() => toggle(a.id)} aria-label="Alarmı devre dışı bırak" className="text-muted-foreground hover:text-primary">
                       <BellOff className="w-4 h-4" />
                     </button>
-                    <button onClick={() => remove(a.id)} className="text-muted-foreground hover:text-destructive">
+                    <button onClick={() => remove(a.id)} aria-label="Alarmı sil" className="text-muted-foreground hover:text-destructive">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -218,10 +218,10 @@ function AlarmPage() {
                   <span className="text-xs text-muted-foreground">{a.type === "above" ? "Üzeri" : "Altı"} {a.targetPrice.toFixed(2)} TL</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => toggle(a.id)} className="text-muted-foreground hover:text-primary">
+                  <button onClick={() => toggle(a.id)} aria-label="Alarmı etkinleştir" className="text-muted-foreground hover:text-primary">
                     <Bell className="w-4 h-4" />
                   </button>
-                  <button onClick={() => remove(a.id)} className="text-muted-foreground hover:text-destructive">
+                  <button onClick={() => remove(a.id)} aria-label="Alarmı sil" className="text-muted-foreground hover:text-destructive">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

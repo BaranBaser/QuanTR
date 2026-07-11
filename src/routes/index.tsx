@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Sparkles, ArrowRight, Crown, TrendingUp, TrendingDown, Star, ExternalLink, RefreshCw, BarChart3, Activity, Target } from "lucide-react";
+import { useMemo } from "react";
+import { Sparkles, ArrowRight, Crown, TrendingUp, TrendingDown, BarChart3, Activity } from "lucide-react";
 import heroImg from "@/assets/hero-bull-ai.jpg";
 import logo from "@/assets/stockbear-logo.png";
 import { AppShell, Sparkline, genLine } from "@/components/AppShell";
@@ -98,23 +99,25 @@ function Dashboard() {
   };
 
   // Sektör analizi
-  const sectors = displayStocks.reduce((acc, s) => {
-    const sector = s.sector;
-    const existing = acc.find((a) => a.name === sector);
-    if (existing) {
-      existing.stocks.push(s);
-      existing.avgChange += s.changePercent;
-    } else {
-      acc.push({ name: sector, stocks: [s], avgChange: s.changePercent });
-    }
-    return acc;
-  }, [] as { name: string; stocks: DisplayItem[]; avgChange: number }[]);
+  const sectors = useMemo(() => {
+    const result = displayStocks.reduce((acc, s) => {
+      const sector = s.sector;
+      const existing = acc.find((a) => a.name === sector);
+      if (existing) {
+        existing.stocks.push(s);
+        existing.avgChange += s.changePercent;
+      } else {
+        acc.push({ name: sector, stocks: [s], avgChange: s.changePercent });
+      }
+      return acc;
+    }, [] as { name: string; stocks: DisplayItem[]; avgChange: number }[]);
+    result.forEach((s) => { s.avgChange /= s.stocks.length; });
+    return result;
+  }, [displayStocks]);
 
-  sectors.forEach((s) => { s.avgChange /= s.stocks.length; });
-
-  const gainers = [...displayStocks].sort((a, b) => b.changePercent - a.changePercent).slice(0, 5);
-  const losers = [...displayStocks].sort((a, b) => a.changePercent - b.changePercent).slice(0, 5);
-  const highVolume = [...displayStocks].sort((a, b) => b.volume - a.volume).slice(0, 5);
+  const gainers = useMemo(() => [...displayStocks].sort((a, b) => b.changePercent - a.changePercent).slice(0, 5), [displayStocks]);
+  const losers = useMemo(() => [...displayStocks].sort((a, b) => a.changePercent - b.changePercent).slice(0, 5), [displayStocks]);
+  const highVolume = useMemo(() => [...displayStocks].sort((a, b) => b.volume - a.volume).slice(0, 5), [displayStocks]);
 
   return (
     <AppShell>
@@ -230,7 +233,7 @@ function Dashboard() {
             <Link to="/ai" className="text-xs text-primary">Tümü</Link>
           </div>
           <div className="space-y-2">
-            {gainers.map((s) => (
+            {gainers.map((s: DisplayItem) => (
               <Link key={s.symbol} to="/analiz" search={{ symbol: s.symbol }} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/40 transition-colors">
                 <div>
                   <div className="font-semibold text-sm">{s.symbol}</div>
@@ -252,7 +255,7 @@ function Dashboard() {
             <Link to="/ai" className="text-xs text-primary">Tümü</Link>
           </div>
           <div className="space-y-2">
-            {losers.map((s) => (
+            {losers.map((s: DisplayItem) => (
               <Link key={s.symbol} to="/analiz" search={{ symbol: s.symbol }} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/40 transition-colors">
                 <div>
                   <div className="font-semibold text-sm">{s.symbol}</div>
@@ -273,7 +276,7 @@ function Dashboard() {
             <h3 className="font-semibold flex items-center gap-2"><BarChart3 className="w-4 h-4 text-primary" /> Sektör Performansı</h3>
           </div>
           <div className="space-y-3">
-            {sectors.sort((a, b) => b.avgChange - a.avgChange).map((s) => (
+            {sectors.sort((a: { name: string; stocks: DisplayItem[]; avgChange: number }, b: { name: string; stocks: DisplayItem[]; avgChange: number }) => b.avgChange - a.avgChange).map((s: { name: string; stocks: DisplayItem[]; avgChange: number }) => (
               <div key={s.name}>
                 <div className="flex items-center justify-between text-xs mb-1">
                   <span className="text-muted-foreground">{s.name} ({s.stocks.length})</span>
@@ -297,7 +300,7 @@ function Dashboard() {
           <Link to="/piyasa" className="text-xs text-primary">Tümünü Gör</Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {highVolume.map((s) => (
+          {highVolume.map((s: DisplayItem) => (
             <Link key={s.symbol} to="/analiz" search={{ symbol: s.symbol }} className="rounded-lg bg-secondary/50 border border-border p-3 hover:border-primary/40 transition-colors">
               <div className="font-semibold text-sm">{s.symbol}</div>
               <div className="text-[10px] text-muted-foreground mb-2">{s.name}</div>
@@ -327,7 +330,7 @@ function Dashboard() {
 
       {/* Footer */}
       <footer className="border-t border-border pt-6 flex flex-wrap items-center justify-between gap-4 text-sm">
-        <div className="flex items-center gap-2"><img src={logo} alt="" width={32} height={32} className="w-8 h-8" /><span className="font-bold">stock<span className="text-primary">bear</span></span></div>
+        <div className="flex items-center gap-2"><img src={logo} alt="stockbear" width={32} height={32} className="w-8 h-8" /><span className="font-bold">stock<span className="text-primary">bear</span></span></div>
         <nav className="flex flex-wrap gap-6 text-muted-foreground">
           <a href="https://github.com/BaranBaser/stockbear" target="_blank" rel="noopener noreferrer">GitHub</a>
         </nav>

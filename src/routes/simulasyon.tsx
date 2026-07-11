@@ -29,13 +29,6 @@ function SimPage() {
 
   const stock = findStock(symbol);
   
-  // Random walk price simulation (cumulative daily changes)
-  const dailyChange = useMemo(() => {
-    const seed = day * 137 + symbol.charCodeAt(0) * 31;
-    const pseudoRandom = () => { const x = Math.sin(seed + Math.random() * 0.001) * 10000; return x - Math.floor(x); };
-    return (pseudoRandom() - 0.5) * 0.06;
-  }, [day, symbol]);
-
   const cumulativeMultiplier = useMemo(() => {
     let mult = 1;
     for (let i = 1; i <= day; i++) {

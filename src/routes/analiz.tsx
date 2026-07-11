@@ -46,7 +46,7 @@ function AnalizPage() {
     throwOnError: false,
   });
 
-  const { data: history = [], isLoading: loadingHistory } = useQuery({
+  const { data: history = [] } = useQuery({
     queryKey: ["stock-history", selectedSymbol, timeRange],
     queryFn: async (): Promise<Array<{ date: string; open: number; high: number; low: number; close: number; volume: number }>> => {
       try {

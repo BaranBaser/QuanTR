@@ -19,7 +19,7 @@ COPY ml-api/requirements.txt ./ml-api/
 RUN pip install --no-cache-dir -r ml-api/requirements.txt
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 COPY . .
 RUN npm run build

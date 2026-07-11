@@ -33,7 +33,7 @@ function WatchlistCard({ symbol, onToggle }: { symbol: string; onToggle: () => v
         if (result && result.length > 0) {
           return result.map((h: { close: number }) => h.close).filter(Boolean);
         }
-      } catch {}
+      } catch (e) { console.warn("Sparkline fetch error:", symbol, e); }
       return [];
     },
     staleTime: 5 * 60 * 1000,
