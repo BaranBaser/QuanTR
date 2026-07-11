@@ -1,7 +1,6 @@
 FROM python:3.11-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV NODE_ENV=production
 
 RUN apt-get update && apt-get install -y \
     curl \
