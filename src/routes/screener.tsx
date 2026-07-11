@@ -44,7 +44,7 @@ function ScreenerPage() {
   const [onlyLosers, setOnlyLosers] = useState(false);
   const [near52Low, setNear52Low] = useState(false);
   const [near52High, setNear52High] = useState(false);
-  const [sortBy, setSortBy] = useState<"changePercent" | "volume" | "price" | "pe">((urlSort as any) || "changePercent");
+  const [sortBy, setSortBy] = useState<"changePercent" | "volume" | "price" | "pe">((urlSort as "changePercent" | "volume" | "price" | "pe") || "changePercent");
 
   const setPreset = (p: FilterPreset) => {
     setPresetState(p);

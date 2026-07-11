@@ -6,8 +6,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { fetchStockHistory } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
 import { useLivePrice } from "@/lib/useLivePrice";
-import { Star, Plus, X } from "lucide-react";
-import { useState } from "react";
+import { Star, Plus, X, Search } from "lucide-react";
+import { useState, useMemo } from "react";
 
 export const Route = createFileRoute("/takip")({
   head: () => ({
@@ -31,7 +31,7 @@ function WatchlistCard({ symbol, onToggle }: { symbol: string; onToggle: () => v
       try {
         const result = await fetchHistory({ data: { symbol, range: "3mo" } });
         if (result && result.length > 0) {
-          return result.map((h: any) => h.close).filter(Boolean);
+          return result.map((h: { close: number }) => h.close).filter(Boolean);
         }
       } catch {}
       return [];
@@ -78,7 +78,13 @@ function WatchlistCard({ symbol, onToggle }: { symbol: string; onToggle: () => v
 function TakipPage() {
   const { list, toggle } = useWatchlist();
   const [showAdd, setShowAdd] = useState(false);
-  const notAdded = stocks.filter((s) => !list.includes(s.symbol));
+  const [searchQuery, setSearchQuery] = useState("");
+  const notAdded = useMemo(() => {
+    const filtered = stocks.filter((s) => !list.includes(s.symbol));
+    if (!searchQuery.trim()) return filtered;
+    const q = searchQuery.toUpperCase();
+    return filtered.filter((s) => s.symbol.includes(q) || s.name.toUpperCase().includes(q));
+  }, [list, searchQuery]);
 
   return (
     <AppShell>
@@ -91,13 +97,22 @@ function TakipPage() {
       {showAdd && (
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="text-sm font-semibold mb-3">Hisse Ekle</div>
-          <div className="flex flex-wrap gap-2">
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Hisse adı veya kodu ara..."
+              className="w-full bg-secondary border border-border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
             {notAdded.map((s) => (
               <button key={s.symbol} onClick={() => toggle(s.symbol)} className="text-xs bg-secondary border border-border rounded-full px-3 py-1.5 hover:border-primary/40">
                 + {s.symbol}
               </button>
             ))}
-            {notAdded.length === 0 && <div className="text-sm text-muted-foreground">Tüm hisseler eklendi.</div>}
+            {notAdded.length === 0 && <div className="text-sm text-muted-foreground">Eklenecek hisse kalmadı.</div>}
           </div>
         </div>
       )}

@@ -69,6 +69,7 @@ function GrafikPage() {
   });
   const [searchInput, setSearchInput] = useState(symbol);
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null);
 
   const fetchHistory = useServerFn(fetchStockHistory);
@@ -96,7 +97,7 @@ function GrafikPage() {
 
   const candleData = useMemo(() => {
     return history.map((p: { date: string; open: number; high: number; low: number; close: number }) => ({
-      time: Math.floor(new Date(p.date).getTime() / 1000) as any,
+      time: Math.floor(new Date(p.date).getTime() / 1000) as unknown as number,
       open: p.open,
       high: p.high,
       low: p.low,
@@ -111,10 +112,10 @@ function GrafikPage() {
     const sma = computeSMA(closes, 20);
     return sma
       .map((v, i) => ({
-        time: Math.floor(new Date(history[i].date).getTime() / 1000) as any,
+        time: Math.floor(new Date(history[i].date).getTime() / 1000),
         value: v,
       }))
-      .filter((p): p is { time: any; value: number } => p.value !== undefined);
+      .filter((p): p is { time: number; value: number } => p.value !== undefined);
   }, [closes, history, indicators.sma20]);
 
   const sma50Data = useMemo(() => {
@@ -122,10 +123,10 @@ function GrafikPage() {
     const sma = computeSMA(closes, 50);
     return sma
       .map((v, i) => ({
-        time: Math.floor(new Date(history[i].date).getTime() / 1000) as any,
+        time: Math.floor(new Date(history[i].date).getTime() / 1000),
         value: v,
       }))
-      .filter((p): p is { time: any; value: number } => p.value !== undefined);
+      .filter((p): p is { time: number; value: number } => p.value !== undefined);
   }, [closes, history, indicators.sma50]);
 
   const ema12Data = useMemo(() => {
@@ -133,22 +134,22 @@ function GrafikPage() {
     const ema = computeEMA(closes, 12);
     return ema
       .map((v, i) => ({
-        time: Math.floor(new Date(history[i].date).getTime() / 1000) as any,
+        time: Math.floor(new Date(history[i].date).getTime() / 1000),
         value: v,
       }))
-      .filter((p): p is { time: any; value: number } => p.value !== undefined);
+      .filter((p): p is { time: number; value: number } => p.value !== undefined);
   }, [closes, history, indicators.ema12]);
 
   const bollingerData = useMemo(() => {
     if (!indicators.bollinger || closes.length < 20) return null;
-    const upper: { time: any; value: number }[] = [];
-    const lower: { time: any; value: number }[] = [];
+    const upper: { time: number; value: number }[] = [];
+    const lower: { time: number; value: number }[] = [];
     for (let i = 19; i < closes.length; i++) {
       const slice = closes.slice(i - 19, i + 1);
       const mid = slice.reduce((a: number, b: number) => a + b, 0) / 20;
       const variance = slice.reduce((acc: number, val: number) => acc + Math.pow(val - mid, 2), 0) / 20;
       const std = Math.sqrt(variance);
-      const time = Math.floor(new Date(history[i].date).getTime() / 1000) as any;
+      const time = Math.floor(new Date(history[i].date).getTime() / 1000);
       upper.push({ time, value: mid + 2 * std });
       lower.push({ time, value: mid - 2 * std });
     }
@@ -157,7 +158,7 @@ function GrafikPage() {
 
   const rsiData = useMemo(() => {
     if (!indicators.rsi || closes.length < 15) return [];
-    const rsiValues: { time: any; value: number }[] = [];
+    const rsiValues: { time: number; value: number }[] = [];
     for (let i = 14; i < closes.length; i++) {
       let gains = 0;
       let losses = 0;
@@ -168,7 +169,7 @@ function GrafikPage() {
       }
       const rsi = losses === 0 ? 100 : 100 - 100 / (1 + gains / losses);
       rsiValues.push({
-        time: Math.floor(new Date(history[i].date).getTime() / 1000) as any,
+        time: Math.floor(new Date(history[i].date).getTime() / 1000),
         value: rsi,
       });
     }

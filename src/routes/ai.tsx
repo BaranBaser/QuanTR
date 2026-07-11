@@ -27,7 +27,7 @@ function BacktestSection({ symbol }: { symbol: string }) {
     queryFn: async () => {
       if (!historyData || historyData.length < 60) return null;
       try {
-        const closes = historyData.map((d: any) => d.close);
+        const closes = historyData.map((d: { close: number }) => d.close);
         const horizon = 5;
         const testPoints = [0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
           .map((p) => Math.floor(closes.length * p))
@@ -59,7 +59,7 @@ function BacktestSection({ symbol }: { symbol: string }) {
   const chartData = useMemo(() => {
     if (!historyData || !walkForwardData || walkForwardData.length === 0) {
       if (!historyData) return [];
-      return historyData.map((d: any) => ({
+      return historyData.map((d: { date: string; close: number }) => ({
         date: new Date(d.date).toLocaleDateString("tr-TR", { month: "short", day: "numeric" }),
         actual: +Number(d.close).toFixed(2),
         predicted: null,
@@ -68,14 +68,14 @@ function BacktestSection({ symbol }: { symbol: string }) {
       }));
     }
 
-    const closes = historyData.map((d: any) => d.close);
+    const closes = historyData.map((d: { close: number }) => d.close);
     const predictedMap = new Map<string, typeof walkForwardData[0]>();
     for (const p of walkForwardData) {
       const key = new Date(p.date).toLocaleDateString("tr-TR", { month: "short", day: "numeric" });
       predictedMap.set(key, p);
     }
 
-    return historyData.map((d: any) => {
+    return historyData.map((d: { date: string; close: number }) => {
       const dateStr = new Date(d.date).toLocaleDateString("tr-TR", { month: "short", day: "numeric" });
       const wp = predictedMap.get(dateStr);
       return {
@@ -93,7 +93,7 @@ function BacktestSection({ symbol }: { symbol: string }) {
     let matchCount = 0;
     let totalConfidence = 0;
     for (const point of walkForwardData) {
-      const currentIdx = historyData!.findIndex((d: any) => d.date === point.date);
+      const currentIdx = historyData!.findIndex((d: { date: string }) => d.date === point.date);
       if (currentIdx < 0) continue;
       const currentPrice = historyData![currentIdx].close;
       const actualDir = point.actualAtHorizon - currentPrice;
@@ -237,7 +237,7 @@ function AIEnginePage() {
                    </tr>
                  </thead>
                  <tbody>
-                   {topAiData?.map((item: any) => (
+                    {topAiData?.map((item: { symbol: string; analysis: { decision: string; rawScore: number; currentPrice: number } }) => (
                      <tr key={item.symbol} className="border-b border-border/50 hover:bg-secondary/50 cursor-pointer transition-colors" onClick={() => setSelectedSymbol(item.symbol)}>
                        <td className="py-3 pr-4 font-bold">{item.symbol}</td>
                        <td className="py-3 pr-4 font-bold">

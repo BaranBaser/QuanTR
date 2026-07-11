@@ -3,7 +3,8 @@ import { AppShell, PageHeader } from "@/components/AppShell";
 import { useServerFn } from "@tanstack/react-start";
 import { fetchCalendar } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, CalendarX } from "lucide-react";
+import { useState, useMemo } from "react";
 
 export const Route = createFileRoute("/takvim")({
   head: () => ({
@@ -18,6 +19,8 @@ export const Route = createFileRoute("/takvim")({
 
 function CalendarPage() {
   const fetchCalFn = useServerFn(fetchCalendar);
+  const [countryFilter, setCountryFilter] = useState("all");
+  const [impactFilter, setImpactFilter] = useState("all");
 
   const { data: events = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ["calendar"],
@@ -27,6 +30,19 @@ function CalendarPage() {
     staleTime: 600_000,
     throwOnError: false,
   });
+
+  const countries = useMemo(() => {
+    const set = new Set(events.map((e: { country: string }) => e.country));
+    return ["all", ...Array.from(set)];
+  }, [events]);
+
+  const filteredEvents = useMemo(() => {
+    return events.filter((e: { country: string; impact: string }) => {
+      if (countryFilter !== "all" && e.country !== countryFilter) return false;
+      if (impactFilter !== "all" && e.impact !== impactFilter) return false;
+      return true;
+    });
+  }, [events, countryFilter, impactFilter]);
 
   return (
     <AppShell>
@@ -47,6 +63,24 @@ function CalendarPage() {
         </div>
       )}
 
+      {!isLoading && events.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <select value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)}
+            className="bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm">
+            {countries.map((c) => (
+              <option key={c} value={c}>{c === "all" ? "Tüm Ülkeler" : c}</option>
+            ))}
+          </select>
+          <select value={impactFilter} onChange={(e) => setImpactFilter(e.target.value)}
+            className="bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm">
+            <option value="all">Tüm Etki</option>
+            <option value="high">Yüksek</option>
+            <option value="medium">Orta</option>
+            <option value="low">Düşük</option>
+          </select>
+        </div>
+      )}
+
       <div className="rounded-xl border border-border bg-card overflow-x-auto">
         <table className="w-full text-sm min-w-[600px]">
           <thead className="text-xs text-muted-foreground">
@@ -61,7 +95,7 @@ function CalendarPage() {
             </tr>
           </thead>
           <tbody>
-            {events.map((e, i) => (
+            {filteredEvents.map((e, i) => (
               <tr key={i} className="border-b border-border hover:bg-secondary/40">
                 <td className="p-3 font-semibold">{e.date}</td>
                 <td className="text-muted-foreground">{e.time}</td>
@@ -76,6 +110,18 @@ function CalendarPage() {
                 <td className="text-right font-mono text-muted-foreground pr-3">{e.previous}</td>
               </tr>
             ))}
+            {!isLoading && filteredEvents.length === 0 && (
+              <tr>
+                <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                  <CalendarX className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">
+                    {events.length === 0
+                      ? "Henüz ekonomik veri bulunmuyor."
+                      : "Bu filtrelere uygun olay bulunamadı."}
+                  </p>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

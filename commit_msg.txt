@@ -1,1 +1,1 @@
-Kritik buglar duzeltildi: hooks ihlali, portfoy degeri, sektor lookup, benchmark sembolu, alarm cooldown, SSR hydration. Calismayan ozellikler kaldirildi, olu kod temizlendi.
+UX iyilestirmeleri: takip arama, takvim filtre/bos durum. TypeScript any cleanup. Kullanilmayan bağımlılıklar kaldırıldı (react-virtual, date-fns).
