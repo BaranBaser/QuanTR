@@ -9,12 +9,13 @@ type LivePriceResult = {
   high: number;
   low: number;
   isLoading: boolean;
+  isError: boolean;
 };
 
 export function useLivePrice(symbol: string): LivePriceResult {
   const fetchSingle = useServerFn(fetchSingleStock);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["live-price", symbol],
     queryFn: async () => {
       try {
@@ -29,7 +30,7 @@ export function useLivePrice(symbol: string): LivePriceResult {
             low: result.low || 0,
           };
         }
-      } catch {}
+      } catch (e) { console.warn("useLivePrice fetch error:", symbol, e); }
       return { price: 0, changePercent: 0, volume: 0, high: 0, low: 0 };
     },
     staleTime: 60_000,
@@ -44,5 +45,6 @@ export function useLivePrice(symbol: string): LivePriceResult {
     high: data?.high ?? 0,
     low: data?.low ?? 0,
     isLoading,
+    isError,
   };
 }

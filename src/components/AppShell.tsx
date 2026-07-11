@@ -197,7 +197,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 // Shared helpers
-export function seedRandom(seed: number) {
+function seedRandom(seed: number) {
   return () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
 }
 export function genLine(seed: number, points = 40, trend: "up" | "down" | "flat" = "up") {

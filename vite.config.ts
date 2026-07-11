@@ -5,7 +5,6 @@
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-// @ts-ignore
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
@@ -20,8 +19,10 @@ export default defineConfig({
         manifest: {
           name: "stockbear — Yapay Zeka Destekli Hisse Analizi",
           short_name: "stockbear",
+          id: "/",
           description:
             "Yapay zeka gücüyle hisse analizi, piyasa özeti, portföy takibi ve AI önerileri.",
+          categories: ["finance", "business"],
           theme_color: "#6d28d9",
           background_color: "#0f172a",
           display: "standalone",

@@ -1,10 +1,54 @@
+# Dependencies
 node_modules/
+
+# Build output
+dist/
+dist-ssr/
 .output/
 .wrangler/
 .tanstack/
+.nitro/
+.vercel/
+
+# Logs
+logs/
 *.log
-.dev.vars
-.vercel
-dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+dev.log
+dev-err.log
+
+# Environment
 .env
 .env.local
+.env.*.local
+.dev.vars
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Misc
+commit_msg.txt
+bunfig.toml
+bun.lock
+scripts/
+components.json
+.prettierrc
+.prettierignore
+AGENTS.md

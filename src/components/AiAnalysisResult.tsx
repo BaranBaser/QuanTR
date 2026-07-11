@@ -1,55 +1,10 @@
 import { Brain, CheckCircle2, AlertTriangle, AlertCircle, Target, Zap, Activity, Shield, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import type { EngineResult, HorizonPrediction, ModelPrediction } from "@/lib/ml.engine";
 
-interface PredictionModel {
-  model: string;
-  prediction: number;
-  weight: number;
-  rmse: number;
-}
-
-interface Prediction {
-  horizonDays: number;
-  expectedPrice: number;
-  lowerBand: number;
-  upperBand: number;
-  expectedReturnPercent: number;
-  confidence: number;
-  rmse: number;
-  models: PredictionModel[];
-}
-
-interface AnalysisData {
-  decision: "AL" | "SAT" | "BEKLE";
-  confidenceScore: number;
-  rawScore: number;
-  currentPrice: number;
-  volatility: number;
-  trend: "YÜKSELEN" | "DÜŞEN" | "YATAY";
-  predictions: Prediction[];
-  indicators: {
-    rsi: number;
-    macd: number;
-    macdSignal: number;
-    sma20: number;
-    sma50: number;
-    stochastic: { k: number; d: number };
-    adx: number;
-    cci: number;
-    obv: number;
-    vwap: number;
-    atr: number;
-  };
-  regime: "TRENDING_UP" | "TRENDING_DOWN" | "RANGING" | "HIGH_VOLATILITY";
-  riskManagement: {
-    suggestedStopLoss: number;
-    suggestedTakeProfit: number;
-    suggestedPositionSize: number;
-    riskRewardRatio: number;
-  };
-  supportLevels: number[];
-  resistanceLevels: number[];
-}
+type PredictionModel = ModelPrediction;
+type Prediction = HorizonPrediction;
+type AnalysisData = EngineResult;
 
 interface AiAnalysisResultProps {
   analysis: AnalysisData | null;

@@ -11,7 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Plus, X } from "lucide-react";
+import { Plus, X, RefreshCw } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { fetchStockHistory } from "@/lib/ai.functions";
@@ -161,12 +161,13 @@ function KarsilastirPage() {
     }
   }, [fetchHistory]);
 
-  const { data: hist0 = [] } = useQuery({ queryKey: ["stock-history", symbols[0], "6mo"], queryFn: () => queryFn(symbols[0]), staleTime: 300_000, throwOnError: false, enabled: symbols.length > 0 });
-  const { data: hist1 = [] } = useQuery({ queryKey: ["stock-history", symbols[1], "6mo"], queryFn: () => queryFn(symbols[1]), staleTime: 300_000, throwOnError: false, enabled: symbols.length > 1 });
-  const { data: hist2 = [] } = useQuery({ queryKey: ["stock-history", symbols[2], "6mo"], queryFn: () => queryFn(symbols[2]), staleTime: 300_000, throwOnError: false, enabled: symbols.length > 2 });
-  const { data: hist3 = [] } = useQuery({ queryKey: ["stock-history", symbols[3], "6mo"], queryFn: () => queryFn(symbols[3]), staleTime: 300_000, throwOnError: false, enabled: symbols.length > 3 });
+  const { data: hist0 = [], isLoading: loading0 } = useQuery({ queryKey: ["stock-history", symbols[0], "6mo"], queryFn: () => queryFn(symbols[0]), staleTime: 300_000, throwOnError: false, enabled: symbols.length > 0 });
+  const { data: hist1 = [], isLoading: loading1 } = useQuery({ queryKey: ["stock-history", symbols[1], "6mo"], queryFn: () => queryFn(symbols[1]), staleTime: 300_000, throwOnError: false, enabled: symbols.length > 1 });
+  const { data: hist2 = [], isLoading: loading2 } = useQuery({ queryKey: ["stock-history", symbols[2], "6mo"], queryFn: () => queryFn(symbols[2]), staleTime: 300_000, throwOnError: false, enabled: symbols.length > 2 });
+  const { data: hist3 = [], isLoading: loading3 } = useQuery({ queryKey: ["stock-history", symbols[3], "6mo"], queryFn: () => queryFn(symbols[3]), staleTime: 300_000, throwOnError: false, enabled: symbols.length > 3 });
   const allHistories = [hist0, hist1, hist2, hist3];
   const histories = allHistories.slice(0, symbols.length);
+  const historiesLoading = [loading0, loading1, loading2, loading3].slice(0, symbols.length).some(Boolean);
 
   const radarData = useMemo(() => {
     const metrics = ["Getiri (Aylık)", "Volatilite", "RSI", "Hacim", "Trend Gücü"];
@@ -275,6 +276,12 @@ function KarsilastirPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {historiesLoading && (
+          <div className="col-span-full text-center py-8 text-muted-foreground text-sm">
+            <RefreshCw className="w-5 h-5 animate-spin inline-block mr-2" />
+            Veriler yükleniyor...
+          </div>
+        )}
         {symbols.map((s, i) => (
           <StockRow key={s} symbol={s} index={i} history={histories[i] || []} />
         ))}

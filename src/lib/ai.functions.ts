@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import { SECTOR_MAP } from "./market-data";
 
 // ─── Yahoo Finance helpers ──────────────────────────────────────────────────
@@ -35,7 +34,8 @@ async function yfFetch(symbol: string, range = "1d", interval = "1d") {
     }
     
     return result;
-  } catch {
+  } catch (e) {
+    console.warn("yfFetch error:", symbol, e);
     return null;
   }
 }
@@ -64,7 +64,7 @@ function parseMeta(result: Record<string, unknown>) {
 
 // ─── Market Indexes ─────────────────────────────────────────────────────────
 
-export type IndexData = {
+type IndexData = {
   name: string;
   symbol: string;
   value: number;
@@ -224,14 +224,15 @@ export const fetchStockHistory = createServerFn({ method: "GET" })
         close: quotes.close[i],
         volume: quotes.volume[i],
       }));
-    } catch {
+    } catch (e) {
+      console.warn("fetchHistory error:", data.symbol, e);
       return [];
     }
   });
 
 // ─── News (RSS -> JSON proxy) ──────────────────────────────────────────────
 
-export type NewsItem = {
+type NewsItem = {
   id: number;
   title: string;
   source: string;
@@ -271,7 +272,7 @@ export const fetchNews = createServerFn({ method: "GET" })
             const json = await res.json();
             if (json.news) allItems.push(...json.news);
           }
-        } catch {}
+        } catch (e) { console.warn("News fetch error:", e); }
       }
 
       // Tekrarlanan haberleri temizle
@@ -294,7 +295,8 @@ export const fetchNews = createServerFn({ method: "GET" })
         impact: guessImpact(n.title),
         thumbnail: n.thumbnail?.resolutions?.[0]?.url,
       }));
-    } catch {
+    } catch (e) {
+      console.warn("fetchNews error:", e);
       return getFallbackNews();
     }
   });
@@ -334,7 +336,7 @@ function guessImpact(title: string): "high" | "medium" | "low" {
 
 // ─── Economic Calendar ──────────────────────────────────────────────────────
 
-export type CalendarEvent = {
+type CalendarEvent = {
   date: string;
   time: string;
   event: string;
@@ -372,7 +374,8 @@ export const fetchCalendar = createServerFn({ method: "GET" })
         forecast: e.forecast || "-",
         previous: e.previous || "-",
       }));
-    } catch {
+    } catch (e) {
+      console.warn("fetchCalendar error:", e);
       return getFallbackCalendar();
     }
   });
@@ -435,7 +438,8 @@ export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
       
       const analysis = await runAIEngine(history, data.symbol, data.dataCount);
       return { symbol: data.symbol, analysis };
-    } catch {
+    } catch (e) {
+      console.warn("fetchSingleAiAnalysis error:", data.symbol, e);
       return null;
     }
   });

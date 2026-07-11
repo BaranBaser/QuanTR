@@ -58,7 +58,7 @@ function ScreenerPage() {
   };
   const fetchBist = useServerFn(fetchBistData);
 
-  const { data: liveData = [], isLoading, refetch, isFetching } = useQuery({
+  const { data: liveData = [], isLoading, refetch, isFetching, isError } = useQuery({
     queryKey: ["bist-data"],
     queryFn: async () => {
       try { return await fetchBist({}); } catch { return []; }
@@ -290,6 +290,11 @@ function ScreenerPage() {
         <div className="lg:col-span-3 rounded-xl border border-border bg-card overflow-hidden">
           {isLoading && (
             <div className="p-8 text-center text-muted-foreground text-sm animate-pulse">Canlı veriler yükleniyor...</div>
+          )}
+          {isError && !isLoading && (
+            <div className="p-8 text-center text-destructive text-sm">
+              Veriler yüklenemedi. <button onClick={() => refetch()} className="underline hover:no-underline">Tekrar dene</button>
+            </div>
           )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

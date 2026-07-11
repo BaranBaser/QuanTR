@@ -12,7 +12,7 @@ export function useWatchlist() {
   const [list, setList] = useState<Watchlist>([]);
   useEffect(() => {
     const raw = localStorage.getItem(WKEY);
-    if (raw) try { setList(JSON.parse(raw)); } catch {}
+    if (raw) try { setList(JSON.parse(raw)); } catch (e) { console.warn("Watchlist parse error:", e); }
     else setList(["THYAO", "ASELS", "AKBNK"]);
   }, []);
   const save = (next: Watchlist) => { setList(next); localStorage.setItem(WKEY, JSON.stringify(next)); };
@@ -24,7 +24,7 @@ export function usePortfolio() {
   const [items, setItems] = useState<Portfolio>([]);
   useEffect(() => {
     const raw = localStorage.getItem(PKEY);
-    if (raw) try { setItems(JSON.parse(raw)); return; } catch {}
+    if (raw) try { setItems(JSON.parse(raw)); return; } catch (e) { console.warn("Portfolio parse error:", e); }
     setItems([]);
   }, []);
   const save = (next: Portfolio) => { setItems(next); localStorage.setItem(PKEY, JSON.stringify(next)); };
@@ -44,7 +44,7 @@ export function useAlarms() {
   const [alarms, setAlarms] = useState<Alarm[]>([]);
   useEffect(() => {
     const raw = localStorage.getItem(AKEY);
-    if (raw) try { setAlarms(JSON.parse(raw)); } catch {}
+    if (raw) try { setAlarms(JSON.parse(raw)); } catch (e) { console.warn("Alarms parse error:", e); }
   }, []);
   const save = (next: Alarm[]) => { setAlarms(next); localStorage.setItem(AKEY, JSON.stringify(next)); };
   const add = (a: Omit<Alarm, "id" | "createdAt">) => {
@@ -77,7 +77,7 @@ export function useAlarmHistory() {
   const [entries, setEntries] = useState<AlarmHistoryEntry[]>([]);
   useEffect(() => {
     const raw = localStorage.getItem(AHKEY);
-    if (raw) try { setEntries(JSON.parse(raw)); } catch {}
+    if (raw) try { setEntries(JSON.parse(raw)); } catch (e) { console.warn("Alarm history parse error:", e); }
   }, []);
   const save = (next: AlarmHistoryEntry[]) => { setEntries(next); localStorage.setItem(AHKEY, JSON.stringify(next)); };
   const add = (entry: Omit<AlarmHistoryEntry, "id">) => {

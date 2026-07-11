@@ -50,7 +50,7 @@ function Dashboard() {
     throwOnError: false,
   });
 
-  const { data: bistData = [], isLoading: loadingBist } = useQuery({
+  const { data: bistData = [] } = useQuery({
     queryKey: ["bist-data"],
     queryFn: async () => {
       try { return await fetchBist({}); } catch { return []; }

@@ -10,7 +10,15 @@ import { AiAnalysisTable } from "@/components/AiAnalysisTable";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useMemo, useState } from "react";
 
-export const Route = createFileRoute("/piyasa")({ component: PiyasaPage });
+export const Route = createFileRoute("/piyasa")({
+  head: () => ({
+    meta: [
+      { title: "Piyasa Verileri - stockbear" },
+      { name: "description", content: "BIST hisselerinin canlı fiyatları, sektör performansı ve piyasa verileri." },
+    ],
+  }),
+  component: PiyasaPage,
+});
 
 type SortKey = "symbol" | "sector" | "price" | "changePercent" | "volume" | "high52" | "low52";
 

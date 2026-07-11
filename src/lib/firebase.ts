@@ -52,15 +52,27 @@ export async function firebaseSignOut() {
   return signOut(auth);
 }
 
-export async function firebaseOnAuthChange(callback: (user: unknown) => void) {
-  const { onAuthStateChanged } = await import("firebase/auth");
+export async function firebaseOnAuthChange(callback: (user: FirebaseUser | null) => void) {
+  const { onAuthStateChanged, sendEmailVerification } = await import("firebase/auth");
   if (!auth) { callback(null); return () => {}; }
-  return onAuthStateChanged(auth, callback as never);
+  return onAuthStateChanged(auth, (firebaseUser) => {
+    if (firebaseUser) {
+      callback({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName,
+        emailVerified: firebaseUser.emailVerified,
+        sendEmailVerification: () => sendEmailVerification(firebaseUser),
+      });
+    } else {
+      callback(null);
+    }
+  });
 }
 
 export async function firebaseUpdateProfile(user: unknown, data: { displayName?: string }) {
   const { updateProfile } = await import("firebase/auth");
-  return updateProfile(user as never, data);
+  return updateProfile(user as Parameters<typeof updateProfile>[0], data);
 }
 
 export type FirebaseUser = {

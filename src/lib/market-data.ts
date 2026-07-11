@@ -156,7 +156,4 @@ export const stocks: Stock[] = [
   mkStock({ symbol: "TRMET", name: "Tümosan Metal", sector: "Sanayi", price: 117.1, change: -3.22, volume: 304e6, marketCap: 5e9, pe: 14.5, high52: 150, low52: 80 }),
 ];
 
-export const ALL_BIST_SYMBOLS = stocks.map((s) => s.symbol);
 export const findStock = (symbol: string) => stocks.find((s) => s.symbol === symbol.toUpperCase());
-export const getStocksBySector = (sector: string) => stocks.filter((s) => s.sector === sector);
-export const getSectors = () => Array.from(new Set(stocks.map((s) => s.sector)));

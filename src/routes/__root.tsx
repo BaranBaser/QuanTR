@@ -80,6 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "stockbear — Yapay Zeka Destekli Hisse Analizi" },
       { property: "og:description", content: "Yapay zeka gücüyle hisse analizi, piyasa özeti, portföy takibi ve AI önerileri." },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: "/stockbear-logo.png" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "theme-color", content: "#6d28d9" },
     ],

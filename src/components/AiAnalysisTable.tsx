@@ -16,7 +16,8 @@ export function AiAnalysisTable() {
     queryFn: async () => {
       try {
         return await fetchTechnicalSignals({});
-      } catch {
+      } catch (e) {
+        console.warn("fetchTechnicalSignals error:", e);
         return [];
       }
     },
@@ -32,11 +33,11 @@ export function AiAnalysisTable() {
     if (!data) return [];
     
     // Zaten AL ve SAT filtreli geliyor, ama garanti olsun
-    let arr = data.filter((row: any) => row.analysis.decision === "AL" || row.analysis.decision === "SAT");
+    let arr = data.filter((row: { symbol: string; analysis: { decision: string; rawScore: number } }) => row.analysis.decision === "AL" || row.analysis.decision === "SAT");
     
     if (sortKey) {
       arr.sort((a, b) => {
-        let av: any, bv: any;
+        let av: string | number, bv: string | number;
         switch (sortKey) {
           case "symbol": av = a.symbol; bv = b.symbol; break;
           case "decision": 
@@ -49,7 +50,7 @@ export function AiAnalysisTable() {
         if (typeof av === "string" && typeof bv === "string") {
           return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
         }
-        return sortAsc ? av - bv : bv - av;
+        return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
       });
     }
     return arr;
