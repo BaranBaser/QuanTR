@@ -78,7 +78,7 @@ function NewsPage() {
         title="Haberler"
         subtitle={selectedSymbol ? `${selectedSymbol} - İlgili Haberler` : "Piyasadan ve popüler hisselerden en güncel haberler."}
         action={
-          <button onClick={() => refetch()} disabled={isFetching} className="bg-secondary border border-border rounded-lg px-4 py-2 text-sm inline-flex items-center gap-2 hover:border-primary/40 disabled:opacity-50">
+          <button onClick={() => refetch()} disabled={isFetching} aria-label="Haberleri yenile" className="bg-secondary border border-border rounded-lg px-4 py-2 text-sm inline-flex items-center gap-2 hover:border-primary/40 disabled:opacity-50">
             <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
             Yenile
           </button>
@@ -90,6 +90,7 @@ function NewsPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input
           type="text"
+          aria-label="Haber ara"
           placeholder="Hisse bazlı haber ara (Bulanık Arama)..."
           value={searchQuery}
           onFocus={() => setShowSearch(true)}
@@ -98,7 +99,7 @@ function NewsPage() {
           className="w-full bg-secondary border border-border rounded-lg pl-10 pr-10 py-2.5 text-sm focus:outline-none focus:border-primary/60"
         />
         {selectedSymbol && (
-          <button onClick={() => { setSelectedSymbol(null); setSearchQuery(""); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+          <button onClick={() => { setSelectedSymbol(null); setSearchQuery(""); }} aria-label="Aramayı temizle" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4" />
           </button>
         )}
@@ -107,8 +108,12 @@ function NewsPage() {
             {searchResults.map((res) => (
               <div
                 key={res.symbol}
+                role="button"
+                tabIndex={0}
+                aria-label={`${res.symbol} haberlerini göster`}
                 className="flex flex-col px-4 py-2 hover:bg-secondary cursor-pointer border-b border-border last:border-0"
                 onClick={() => { setSelectedSymbol(res.symbol); setSearchQuery(res.symbol); setShowSearch(false); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { setSelectedSymbol(res.symbol); setSearchQuery(res.symbol); setShowSearch(false); } }}
               >
                 <span className="font-semibold text-sm">{res.symbol}</span>
                 <span className="text-xs text-muted-foreground truncate">{res.name}</span>
@@ -120,19 +125,19 @@ function NewsPage() {
 
       <div className="flex flex-wrap gap-2">
         {tags.map((t) => (
-          <button key={t} onClick={() => setTag(t)} className={`px-3 py-1.5 rounded-lg text-sm border ${tag === t ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border hover:border-primary/40"}`}>{t}</button>
+          <button key={t} onClick={() => setTag(t)} aria-pressed={tag === t} className={`px-3 py-1.5 rounded-lg text-sm border ${tag === t ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border hover:border-primary/40"}`}>{t}</button>
         ))}
       </div>
 
       <div className="flex flex-wrap gap-2">
         {sources.slice(0, 8).map((s) => (
-          <button key={s} onClick={() => setSourceFilter(s)} className={`px-2 py-1 rounded text-xs border ${sourceFilter === s ? "bg-secondary text-foreground border-primary/40" : "bg-muted/50 border-border text-muted-foreground hover:border-primary/40"}`}>{s}</button>
+          <button key={s} onClick={() => setSourceFilter(s)} aria-pressed={sourceFilter === s} className={`px-2 py-1 rounded text-xs border ${sourceFilter === s ? "bg-secondary text-foreground border-primary/40" : "bg-muted/50 border-border text-muted-foreground hover:border-primary/40"}`}>{s}</button>
         ))}
       </div>
 
       <div className="flex flex-wrap gap-2">
         {sentimentFilters.map((sf) => (
-          <button key={sf} onClick={() => setSentimentFilter(sf)} className={`px-2 py-1 rounded text-xs border ${sentimentFilter === sf ? "bg-secondary text-foreground border-primary/40" : "bg-muted/50 border-border text-muted-foreground hover:border-primary/40"}`}>
+          <button key={sf} onClick={() => setSentimentFilter(sf)} aria-pressed={sentimentFilter === sf} className={`px-2 py-1 rounded text-xs border ${sentimentFilter === sf ? "bg-secondary text-foreground border-primary/40" : "bg-muted/50 border-border text-muted-foreground hover:border-primary/40"}`}>
             {sf === "all" ? "Tüm Duygular" : sf === "positive" ? "🟢 Pozitif" : sf === "negative" ? "🔴 Negatif" : "⚪ Nötr"}
           </button>
         ))}

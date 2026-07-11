@@ -144,8 +144,8 @@ function formatYfSymbol(sym: string): string {
   return sym.includes(".") ? sym : `${sym}.IS`;
 }
 
-// Toplu veri çekme (batch) — 8'li gruplar halinde (hız için)
-async function fetchBatch(symbols: string[], batchSize = 8): Promise<StockData[]> {
+// Toplu veri çekme (batch) — 50'li gruplar halinde
+async function fetchBatch(symbols: string[], batchSize = 50): Promise<StockData[]> {
   const results: StockData[] = [];
   for (let i = 0; i < symbols.length; i += batchSize) {
     const batch = symbols.slice(i, i + batchSize);
@@ -184,9 +184,13 @@ async function fetchBatch(symbols: string[], batchSize = 8): Promise<StockData[]
 }
 
 export const fetchBistData = createServerFn({ method: "GET" })
-  .validator(() => ({}))
-  .handler(async () => {
-    return fetchBatch(BIST_SYMBOLS);
+  .validator((input: unknown) => {
+    const obj = input as { limit?: number };
+    return { limit: obj?.limit || 0 };
+  })
+  .handler(async ({ data }) => {
+    const all = await fetchBatch(BIST_SYMBOLS);
+    return data.limit > 0 ? all.slice(0, data.limit) : all;
   });
 
 export const fetchSingleStock = createServerFn({ method: "GET" })
@@ -239,11 +243,16 @@ export type NewsItem = {
 };
 
 export const fetchNews = createServerFn({ method: "GET" })
-  .validator(() => ({}))
-  .handler(async () => {
+  .validator((input: unknown) => {
+    const obj = input as { symbol?: string };
+    return { symbol: (obj?.symbol || "").toUpperCase() };
+  })
+  .handler(async ({ data }) => {
     try {
-      // Çoklu sorgu ile daha fazla haber
       const queries = ["borsa piyasa", "bist hisse", "türkiye ekonomi"];
+      if (data.symbol) {
+        queries.unshift(`${data.symbol} hisse`);
+      }
       const allItems: Array<{
         title: string;
         publisher: string;
@@ -432,17 +441,17 @@ export const fetchSingleAiAnalysis = createServerFn({ method: "GET" })
   });
 
 // Fetch history and run Simple Technical Engine for all symbols (AL/SAT only)
+// Limit to top 100 BIST symbols + global to reduce API load
 export const fetchTechnicalSignals = createServerFn({ method: "GET" })
   .validator(() => ({}))
   .handler(async () => {
-    // Scan all BIST + Global symbols
-    const bist = BIST_SYMBOLS.map((s) => `${s}.IS`);
+    const bist = BIST_SYMBOLS.slice(0, 100).map((s) => `${s}.IS`);
     const allSymbols = Array.from(new Set([...bist, ...GLOBAL_SYMBOLS]));
     const results = [];
     
-    // Batch fetch (50 at a time for maximum speed with spark endpoint)
-    for (let i = 0; i < allSymbols.length; i += 50) {
-      const batch = allSymbols.slice(i, i + 50);
+    // Batch fetch (30 at a time)
+    for (let i = 0; i < allSymbols.length; i += 30) {
+      const batch = allSymbols.slice(i, i + 30);
       try {
         const url = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${batch.join(",")}&range=3mo&interval=1d`;
         const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });

@@ -51,7 +51,7 @@ function WatchlistCard({ symbol, onToggle }: { symbol: string; onToggle: () => v
           <Link to="/analiz" search={{ symbol }} className="font-bold text-lg hover:text-primary">{symbol}</Link>
           <div className="text-xs text-muted-foreground">{staticStock?.name || symbol}</div>
         </div>
-        <button onClick={onToggle} className="text-muted-foreground hover:text-destructive"><X className="w-4 h-4" /></button>
+        <button onClick={onToggle} aria-label="Takipten çıkar" className="text-muted-foreground hover:text-destructive"><X className="w-4 h-4" /></button>
       </div>
       <div className="mt-3 flex items-baseline gap-2">
         <div className="text-2xl font-bold">{finalPrice.toFixed(2)} TL</div>
@@ -102,6 +102,7 @@ function TakipPage() {
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Hisse ara"
               placeholder="Hisse adı veya kodu ara..."
               className="w-full bg-secondary border border-border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />

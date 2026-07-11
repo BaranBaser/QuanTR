@@ -46,9 +46,11 @@ function ScreenerPage() {
   const [near52High, setNear52High] = useState(false);
   const [sortBy, setSortBy] = useState<"changePercent" | "volume" | "price" | "pe">((urlSort as "changePercent" | "volume" | "price" | "pe") || "changePercent");
 
-  const setPreset = (p: FilterPreset) => {
-    setPresetState(p);
-    navigate({ search: { preset: p === "hepsi" ? undefined : p, sector: sector === "Tümü" ? undefined : sector, sort: sortBy === "changePercent" ? undefined : sortBy }, replace: true });
+  const applyFilter = (newPreset: FilterPreset, newSector: string, newSort: "changePercent" | "volume" | "price" | "pe") => {
+    setPresetState(newPreset);
+    setSectorState(newSector);
+    setSortBy(newSort);
+    navigate({ search: { preset: newPreset === "hepsi" ? undefined : newPreset, sector: newSector === "Tümü" ? undefined : newSector, sort: newSort === "changePercent" ? undefined : newSort }, replace: true });
   };
   const setSector = (s: string) => {
     setSectorState(s);
@@ -57,7 +59,7 @@ function ScreenerPage() {
   const fetchBist = useServerFn(fetchBistData);
 
   const { data: liveData = [], isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["bist-screener"],
+    queryKey: ["bist-data"],
     queryFn: async () => {
       try { return await fetchBist({}); } catch { return []; }
     },
@@ -112,8 +114,7 @@ function ScreenerPage() {
   }, [preset, sector, minChange, maxChange, minPE, maxPE, minVolume, minPrice, maxPrice, onlyGainers, onlyLosers, near52Low, near52High, sortBy, displayData]);
 
   const resetFilters = () => {
-    setPreset("hepsi");
-    setSector("Tümü");
+    applyFilter("hepsi", "Tümü", "changePercent");
     setMinChange(-10);
     setMaxChange(10);
     setMaxPE(30);
@@ -176,15 +177,16 @@ function ScreenerPage() {
           <button
             key={p.k}
             onClick={() => {
-              setPreset(p.k);
-              if (p.k === "teknoloji") { setSector("Teknoloji"); setSortBy("changePercent"); }
-              else if (p.k === "bankacılık") { setSector("Bankacılık"); setSortBy("changePercent"); }
-              else if (p.k === "düşükFk") { setSector("Tümü"); setSortBy("pe"); }
-              else if (p.k === "yüksekHacim") { setSector("Tümü"); setSortBy("volume"); }
-              else if (p.k === "yükselen") { setSector("Tümü"); setSortBy("changePercent"); }
-              else if (p.k === "52Hdüşük") { setSector("Tümü"); setSortBy("price"); }
-              else { setSector("Tümü"); setSortBy("changePercent"); }
+              let newSector = "Tümü";
+              let newSort: "changePercent" | "price" | "volume" | "pe" = "changePercent";
+              if (p.k === "teknoloji") { newSector = "Teknoloji"; }
+              else if (p.k === "bankacılık") { newSector = "Bankacılık"; }
+              else if (p.k === "düşükFk") { newSort = "pe"; }
+              else if (p.k === "yüksekHacim") { newSort = "volume"; }
+              else if (p.k === "52Hdüşük") { newSort = "price"; }
+              applyFilter(p.k, newSector, newSort);
             }}
+            aria-pressed={preset === p.k}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors ${preset === p.k ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border hover:border-primary/40"}`}
           >
             <p.icon className="w-3.5 h-3.5" />
@@ -199,13 +201,13 @@ function ScreenerPage() {
           <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2"><Filter className="w-4 h-4 text-primary" /><div className="font-semibold text-sm">Filtreler</div></div>
-              <button onClick={resetFilters} className="text-xs text-primary hover:underline">Sıfırla</button>
+              <button onClick={resetFilters} aria-label="Filtreleri sıfırla" className="text-xs text-primary hover:underline">Sıfırla</button>
             </div>
 
             <div className="space-y-4">
               <div>
                 <label className="text-xs text-muted-foreground">Sektör</label>
-                <select value={sector} onChange={(e) => setSector(e.target.value)} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm">
+                <select value={sector} onChange={(e) => setSector(e.target.value)} aria-label="Sektör filtresi" className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm">
                   {sectors.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </div>
@@ -213,30 +215,30 @@ function ScreenerPage() {
               <div>
                 <label className="text-xs text-muted-foreground">Fiyat Aralığı: {minPrice} - {maxPrice} TL</label>
                 <div className="flex gap-2 mt-1">
-                  <input type="number" value={minPrice} onChange={(e) => setMinPrice(+e.target.value)} className="w-1/2 bg-secondary border border-border rounded-lg px-2 py-1.5 text-xs" placeholder="Min" />
-                  <input type="number" value={maxPrice} onChange={(e) => setMaxPrice(+e.target.value)} className="w-1/2 bg-secondary border border-border rounded-lg px-2 py-1.5 text-xs" placeholder="Max" />
+                  <input type="number" value={minPrice} onChange={(e) => setMinPrice(+e.target.value)} aria-label="Minimum fiyat" className="w-1/2 bg-secondary border border-border rounded-lg px-2 py-1.5 text-xs" placeholder="Min" />
+                  <input type="number" value={maxPrice} onChange={(e) => setMaxPrice(+e.target.value)} aria-label="Maksimum fiyat" className="w-1/2 bg-secondary border border-border rounded-lg px-2 py-1.5 text-xs" placeholder="Max" />
                 </div>
               </div>
 
               <div>
                 <label className="text-xs text-muted-foreground">Değişim: {minChange}% — {maxChange}%</label>
                 <div className="flex gap-2 mt-1">
-                  <input type="range" min={-10} max={10} step={0.5} value={minChange} onChange={(e) => setMinChange(+e.target.value)} className="w-1/2 accent-primary" />
-                  <input type="range" min={-10} max={10} step={0.5} value={maxChange} onChange={(e) => setMaxChange(+e.target.value)} className="w-1/2 accent-primary" />
+                  <input type="range" min={-10} max={10} step={0.5} value={minChange} onChange={(e) => setMinChange(+e.target.value)} aria-label="Minimum değişim" className="w-1/2 accent-primary" />
+                  <input type="range" min={-10} max={10} step={0.5} value={maxChange} onChange={(e) => setMaxChange(+e.target.value)} aria-label="Maksimum değişim" className="w-1/2 accent-primary" />
                 </div>
               </div>
 
               <div>
                 <label className="text-xs text-muted-foreground">F/K Oranı: {minPE} — {maxPE}</label>
                 <div className="flex gap-2 mt-1">
-                  <input type="range" min={0} max={30} value={minPE} onChange={(e) => setMinPE(+e.target.value)} className="w-1/2 accent-primary" />
-                  <input type="range" min={1} max={50} value={maxPE} onChange={(e) => setMaxPE(+e.target.value)} className="w-1/2 accent-primary" />
+                  <input type="range" min={0} max={30} value={minPE} onChange={(e) => setMinPE(+e.target.value)} aria-label="Minimum F/K" className="w-1/2 accent-primary" />
+                  <input type="range" min={1} max={50} value={maxPE} onChange={(e) => setMaxPE(+e.target.value)} aria-label="Maksimum F/K" className="w-1/2 accent-primary" />
                 </div>
               </div>
 
               <div>
                 <label className="text-xs text-muted-foreground">Min. Hacim: {minVolume} Mn TL</label>
-                <input type="range" min={0} max={5000} step={100} value={minVolume} onChange={(e) => setMinVolume(+e.target.value)} className="w-full accent-primary" />
+                <input type="range" min={0} max={5000} step={100} value={minVolume} onChange={(e) => setMinVolume(+e.target.value)} aria-label="Minimum hacim" className="w-full accent-primary" />
               </div>
 
               <div className="space-y-2">

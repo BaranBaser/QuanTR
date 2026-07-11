@@ -61,7 +61,7 @@ function AnalizPage() {
   });
 
   const { data: liveData = [] } = useQuery({
-    queryKey: ["bist-piyasa"],
+    queryKey: ["bist-data"],
     queryFn: async () => {
       try { return await fetchBist({}); } catch { return []; }
     },
@@ -211,6 +211,7 @@ function AnalizPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
+            aria-label="Hisse ara"
             placeholder="Hisse ara (Bulanık Arama)..."
             value={searchQuery}
             onFocus={() => setShowSearch(true)}
@@ -248,11 +249,13 @@ function AnalizPage() {
               
               {/* PORTFÖY ADEDİ GİRİŞİ */}
               <div className="flex items-center gap-4 bg-secondary/30 px-4 py-2 rounded-lg border border-border">
-                <label className="text-sm font-semibold text-muted-foreground">Portföydeki Adet:</label>
+                <label htmlFor="shareCount" className="text-sm font-semibold text-muted-foreground">Portföydeki Adet:</label>
                 <div className="flex items-center gap-2">
                   <input 
+                    id="shareCount"
                     type="number" 
                     min="1"
+                    aria-label="Portföydeki adet"
                     className="w-20 bg-background border border-border rounded px-2 py-1 text-right text-sm font-bold focus:outline-none focus:border-primary/60"
                     value={shareCount}
                     onChange={(e) => setShareCount(Math.max(1, parseInt(e.target.value) || 1))}

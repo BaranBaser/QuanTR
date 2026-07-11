@@ -31,10 +31,8 @@ function SimPage() {
   
   // Random walk price simulation (cumulative daily changes)
   const dailyChange = useMemo(() => {
-    // Seeded random based on day for consistency
     const seed = day * 137 + symbol.charCodeAt(0) * 31;
-    const pseudoRandom = () => { const x = Math.sin(seed) * 10000; return x - Math.floor(x); };
-    // Random daily change between -3% and +3% with slight mean reversion
+    const pseudoRandom = () => { const x = Math.sin(seed + Math.random() * 0.001) * 10000; return x - Math.floor(x); };
     return (pseudoRandom() - 0.5) * 0.06;
   }, [day, symbol]);
 
@@ -42,7 +40,7 @@ function SimPage() {
     let mult = 1;
     for (let i = 1; i <= day; i++) {
       const s = i * 137 + symbol.charCodeAt(0) * 31;
-      const r = () => { const x = Math.sin(s) * 10000; return x - Math.floor(x); };
+      const r = () => { const x = Math.sin(s + Math.random() * 0.001) * 10000; return x - Math.floor(x); };
       mult *= (1 + (r() - 0.5) * 0.06);
     }
     return mult;
@@ -57,7 +55,7 @@ function SimPage() {
     for (let i = 0; i <= day; i++) {
       history.push((stock?.price || 100) * mult);
       const s = (i + 1) * 137 + symbol.charCodeAt(0) * 31;
-      const r = () => { const x = Math.sin(s) * 10000; return x - Math.floor(x); };
+      const r = () => { const x = Math.sin(s + Math.random() * 0.001) * 10000; return x - Math.floor(x); };
       mult *= (1 + (r() - 0.5) * 0.06);
     }
     setPriceHistory(history);
@@ -70,7 +68,7 @@ function SimPage() {
     let mult = 1;
     for (let i = 1; i <= day; i++) {
       const rseed = i * 137 + symSeed;
-      const r = () => { const x = Math.sin(rseed) * 10000; return x - Math.floor(x); };
+      const r = () => { const x = Math.sin(rseed + Math.random() * 0.001) * 10000; return x - Math.floor(x); };
       mult *= (1 + (r() - 0.5) * 0.06);
     }
     return sum + basePrice * mult * pos.lots;

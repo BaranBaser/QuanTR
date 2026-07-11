@@ -51,11 +51,11 @@ function Dashboard() {
   });
 
   const { data: bistData = [], isLoading: loadingBist } = useQuery({
-    queryKey: ["bist-home"],
+    queryKey: ["bist-data"],
     queryFn: async () => {
       try { return await fetchBist({}); } catch { return []; }
     },
-    staleTime: 60_000,
+    staleTime: 300_000,
     throwOnError: false,
   });
 

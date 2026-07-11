@@ -32,23 +32,8 @@ export const Route = createFileRoute("/karsilastir")({
 
 const COLORS = ["#3b82f6", "#ef4444", "#22c55e", "#f59e0b"];
 
-function StockRow({ symbol, index }: { symbol: string; index: number }) {
+function StockRow({ symbol, index, history }: { symbol: string; index: number; history: Array<{ close: number; volume?: number }> }) {
   const { price, changePercent } = useLivePrice(symbol);
-  const fetchHistory = useServerFn(fetchStockHistory);
-
-  const { data: history = [] } = useQuery({
-    queryKey: ["stock-history", symbol, "6mo"],
-    queryFn: async () => {
-      try {
-        const r = await fetchHistory({ data: { symbol, range: "6mo" } });
-        return r ?? [];
-      } catch {
-        return [];
-      }
-    },
-    staleTime: 300_000,
-    throwOnError: false,
-  });
 
   const analysis = useMemo(() => {
     if (history.length < 30) return null;
@@ -291,7 +276,7 @@ function KarsilastirPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {symbols.map((s, i) => (
-          <StockRow key={s} symbol={s} index={i} />
+          <StockRow key={s} symbol={s} index={i} history={histories[i] || []} />
         ))}
       </div>
 

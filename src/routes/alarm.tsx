@@ -93,7 +93,7 @@ function AlarmPage() {
         });
       }
     }
-  }, [livePrices, alarms]);
+  }, [livePrices, alarms, addHistory]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Trash2, Plus, Download } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SECTOR_MAP } from "@/lib/market-data";
-import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { calcVolatility } from "@/lib/ml.engine";
 
 export const Route = createFileRoute("/portfoy")({
@@ -173,16 +173,16 @@ function PortfoyPage() {
 
       <form onSubmit={submit} className="rounded-xl border border-border bg-card p-4 flex flex-wrap gap-3 items-end">
         <div className="flex-1 min-w-[120px]">
-          <label className="text-xs text-muted-foreground">Hisse (Örn: THYAO)</label>
-          <input value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm uppercase" />
+          <label htmlFor="pfSymbol" className="text-xs text-muted-foreground">Hisse (Örn: THYAO)</label>
+          <input id="pfSymbol" value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm uppercase" />
         </div>
         <div className="flex-1 min-w-[100px]">
-          <label className="text-xs text-muted-foreground">Adet</label>
-          <input type="number" value={form.lots} onChange={(e) => setForm({ ...form, lots: e.target.value })} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
+          <label htmlFor="pfLots" className="text-xs text-muted-foreground">Adet</label>
+          <input id="pfLots" type="number" value={form.lots} onChange={(e) => setForm({ ...form, lots: e.target.value })} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
         </div>
         <div className="flex-1 min-w-[100px]">
-          <label className="text-xs text-muted-foreground">Ort. Maliyet (TL)</label>
-          <input type="number" step="0.01" value={form.avgPrice} onChange={(e) => setForm({ ...form, avgPrice: e.target.value })} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
+          <label htmlFor="pfPrice" className="text-xs text-muted-foreground">Ort. Maliyet (TL)</label>
+          <input id="pfPrice" type="number" step="0.01" value={form.avgPrice} onChange={(e) => setForm({ ...form, avgPrice: e.target.value })} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
         </div>
         <button type="submit" className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium hover:bg-primary/90 inline-flex items-center gap-2">
           <Plus className="w-4 h-4" /> Pozisyon Ekle
@@ -234,7 +234,8 @@ function PortfoyPage() {
           <div className="rounded-xl border border-border bg-card p-5">
             <h2 className="text-lg font-bold mb-4">Sektör Dağılımı</h2>
             <div className="h-[300px]">
-              <PieChart width={500} height={280}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
                 <Pie
                   data={sectorData}
                   cx="50%"
@@ -250,6 +251,7 @@ function PortfoyPage() {
                 <Tooltip formatter={(value: number) => value.toLocaleString("tr-TR", { maximumFractionDigits: 0 }) + " TL"} />
                 <Legend />
               </PieChart>
+              </ResponsiveContainer>
             </div>
           </div>
 

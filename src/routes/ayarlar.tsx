@@ -44,7 +44,7 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
       } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
     >
       <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-        checked ? "translate-x-5.5" : "translate-x-0.5"
+        checked ? "translate-x-[1.375rem]" : "translate-x-0.5"
       }`} />
     </button>
   );
@@ -91,10 +91,12 @@ function AccountSection() {
 
   useEffect(() => {
     if (!isFirebaseConfigured) { setLoading(false); return; }
+    let unsubFn: (() => void) | null = null;
     firebaseOnAuthChange((u) => {
       setUser(u as FirebaseUser | null);
       setLoading(false);
-    }).then((unsub) => () => unsub());
+    }).then((unsub) => { unsubFn = unsub; });
+    return () => { if (unsubFn) unsubFn(); };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -50,6 +50,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (saved === "light") { document.documentElement.classList.remove("dark"); setDark(false); }
   }, []);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileMenuOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileMenuOpen]);
+
   const toggleTheme = () => {
     const next = !dark;
     setDark(next);
@@ -145,7 +152,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </aside>
 
         {/* Mobil sidebar */}
-        <aside className={`fixed top-[57px] left-0 w-64 h-[calc(100vh-57px)] bg-background border-r border-border p-4 flex flex-col gap-1 z-50 overflow-y-auto transition-transform duration-200 lg:hidden ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`} role="dialog" aria-modal={mobileMenuOpen} aria-label="Mobil menü">
+        <aside className={`fixed top-[57px] left-0 w-64 h-[calc(100vh-57px)] bg-background border-r border-border p-4 flex flex-col gap-1 z-50 overflow-y-auto transition-transform duration-200 lg:hidden ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`} role="dialog" aria-modal={mobileMenuOpen ? "true" : undefined} aria-label="Mobil menü">
           {nav.map((item) => {
             const active = pathname === item.to;
             return (

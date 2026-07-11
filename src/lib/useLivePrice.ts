@@ -32,8 +32,8 @@ export function useLivePrice(symbol: string): LivePriceResult {
       } catch {}
       return { price: 0, changePercent: 0, volume: 0, high: 0, low: 0 };
     },
-    staleTime: 10_000,
-    refetchInterval: 5_000,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
     throwOnError: false,
   });
 

@@ -24,7 +24,7 @@ function PiyasaPage() {
   const fetchHistory = useServerFn(fetchStockHistory);
 
   const { data: liveData = [], isLoading, refetch, isFetching, isError } = useQuery({
-    queryKey: ["bist-piyasa"],
+    queryKey: ["bist-data"],
     queryFn: async () => {
       try { return await fetchBist({}); } catch { return []; }
     },
@@ -134,8 +134,8 @@ function PiyasaPage() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: "Toplam Hisse", value: displayData.length.toString(), sub: "BIST" },
-          { label: "Yükselen", value: gainers.toString(), sub: "adet", up: true, sparkline: indexCloses },
-          { label: "Düşen", value: losers.toString(), sub: "adet", up: false,             sparkline: indexCloses.map((v: number) => -v) },
+          { label: "Yükselen", value: gainers.toString(), sub: "adet", up: true },
+          { label: "Düşen", value: losers.toString(), sub: "adet", up: false },
           { label: "Toplam Hacim", value: `${(totalVol / 1e9).toFixed(1)} Mlr TL`, sub: "günlük" },
           { label: "Ort. Değişim", value: `${avgChange >= 0 ? "+" : ""}${avgChange.toFixed(2)}%`, sub: "ortalama", up: avgChange >= 0 },
         ].map((k) => (
@@ -145,11 +145,6 @@ function PiyasaPage() {
               <div className={`text-2xl font-bold mt-1 ${k.up === true ? "text-[color:var(--success)]" : k.up === false ? "text-destructive" : ""}`}>{k.value}</div>
               <div className="text-xs text-muted-foreground mt-0.5">{k.sub}</div>
             </div>
-            {k.sparkline && k.sparkline.length > 0 && (
-              <div className="absolute -right-4 -bottom-2 opacity-30 pointer-events-none" style={{ width: '60%', height: '80%' }}>
-                 <Sparkline data={k.sparkline} color={k.up ? "oklch(0.72 0.19 145)" : "oklch(0.65 0.22 25)"} height={60} width={120} fill={false} />
-              </div>
-            )}
           </div>
         ))}
       </div>
