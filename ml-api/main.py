@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from models import run_all_models
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -15,10 +15,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class PriceBar(BaseModel):
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+
 class PredictRequest(BaseModel):
     symbol: str
-    prices: List[float]
-    horizons: List[int] = [5, 20, 60, 120]
+    data: List[PriceBar]
+    horizons: Optional[List[int]] = [5, 20, 60, 120]
 
 @app.get("/")
 def read_root():
@@ -26,10 +33,11 @@ def read_root():
 
 @app.post("/predict")
 def predict(req: PredictRequest):
-    if len(req.prices) < 30:
-        return {"error": "Not enough data for prediction"}
+    if len(req.data) < 30:
+        return {"error": "Not enough data for prediction. Minimum 30 bars required."}
     
-    predictions = run_all_models(req.prices, req.horizons)
+    ohlcv = [bar.model_dump() for bar in req.data]
+    predictions = run_all_models(ohlcv, req.horizons)
     return {"symbol": req.symbol, "predictions": predictions}
 
 if __name__ == "__main__":
