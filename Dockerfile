@@ -34,7 +34,7 @@ RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuse
 
 WORKDIR /app
 
-COPY ml-api/requirements.txt ./ml-api/
+COPY ml-api/ ./ml-api/
 RUN pip install --no-cache-dir -r ml-api/requirements.txt
 
 COPY package*.json ./
