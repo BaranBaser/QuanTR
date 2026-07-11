@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   RadarChart,
   PolarGrid,
@@ -167,22 +167,21 @@ function KarsilastirPage() {
 
   const fetchHistory = useServerFn(fetchStockHistory);
 
-  const histories = symbols.map((s) => {
-    const { data = [] } = useQuery({
-      queryKey: ["stock-history", s, "6mo"],
-      queryFn: async () => {
-        try {
-          const r = await fetchHistory({ data: { symbol: s, range: "6mo" } });
-          return r ?? [];
-        } catch {
-          return [];
-        }
-      },
-      staleTime: 300_000,
-      throwOnError: false,
-    });
-    return data;
-  });
+  const queryFn = useCallback(async (s: string) => {
+    try {
+      const r = await fetchHistory({ data: { symbol: s, range: "6mo" } });
+      return r ?? [];
+    } catch {
+      return [];
+    }
+  }, [fetchHistory]);
+
+  const { data: hist0 = [] } = useQuery({ queryKey: ["stock-history", symbols[0], "6mo"], queryFn: () => queryFn(symbols[0]), staleTime: 300_000, throwOnError: false, enabled: symbols.length > 0 });
+  const { data: hist1 = [] } = useQuery({ queryKey: ["stock-history", symbols[1], "6mo"], queryFn: () => queryFn(symbols[1]), staleTime: 300_000, throwOnError: false, enabled: symbols.length > 1 });
+  const { data: hist2 = [] } = useQuery({ queryKey: ["stock-history", symbols[2], "6mo"], queryFn: () => queryFn(symbols[2]), staleTime: 300_000, throwOnError: false, enabled: symbols.length > 2 });
+  const { data: hist3 = [] } = useQuery({ queryKey: ["stock-history", symbols[3], "6mo"], queryFn: () => queryFn(symbols[3]), staleTime: 300_000, throwOnError: false, enabled: symbols.length > 3 });
+  const allHistories = [hist0, hist1, hist2, hist3];
+  const histories = allHistories.slice(0, symbols.length);
 
   const radarData = useMemo(() => {
     const metrics = ["Getiri (Aylık)", "Volatilite", "RSI", "Hacim", "Trend Gücü"];

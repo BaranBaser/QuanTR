@@ -189,19 +189,6 @@ export const fetchBistData = createServerFn({ method: "GET" })
     return fetchBatch(BIST_SYMBOLS);
   });
 
-// Tekli hisse çekme (arama için)
-export const fetchStockByQuery = createServerFn({ method: "GET" })
-  .validator((input: unknown) => {
-    const obj = input as { query?: string };
-    return { query: (obj?.query || "").toUpperCase() };
-  })
-  .handler(async ({ data }) => {
-    if (!data.query) return [];
-    const matched = BIST_SYMBOLS.filter((s) => s.includes(data.query)).slice(0, 20);
-    if (matched.length === 0) return [];
-    return fetchBatch(matched);
-  });
-
 export const fetchSingleStock = createServerFn({ method: "GET" })
   .validator((input: unknown) => {
     const obj = input as { symbol?: string };

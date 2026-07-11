@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Newspaper, ExternalLink, RefreshCw, Search, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { stocks } from "@/lib/market-data";
-import { analyzeNewsSentiment, analyzeSentiment, type SentimentResult } from "@/lib/sentiment";
+import { analyzeNewsSentiment, analyzeSentiment } from "@/lib/sentiment";
 
 export const Route = createFileRoute("/haberler")({
   head: () => ({

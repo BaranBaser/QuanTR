@@ -329,7 +329,7 @@ function Dashboard() {
       <footer className="border-t border-border pt-6 flex flex-wrap items-center justify-between gap-4 text-sm">
         <div className="flex items-center gap-2"><img src={logo} alt="" width={32} height={32} className="w-8 h-8" /><span className="font-bold">stock<span className="text-primary">bear</span></span></div>
         <nav className="flex flex-wrap gap-6 text-muted-foreground">
-          <a href="#">Hakkımızda</a><a href="#">Gizlilik Politikası</a><a href="#">Kullanım Şartları</a><a href="#">İletişim</a>
+          <a href="https://github.com/BaranBaser/stockbear" target="_blank" rel="noopener noreferrer">GitHub</a>
         </nav>
         <div className="text-xs text-muted-foreground">Veri: Yahoo Finance | {displayStocks.length}+ hisse</div>
       </footer>

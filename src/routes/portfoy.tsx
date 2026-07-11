@@ -110,7 +110,7 @@ function PortfoyPage() {
     queryKey: ["bist100-history"],
     queryFn: async () => {
       try {
-        const h = await fetchHistory({ data: { symbol: "XU100", range: "1mo" } });
+        const h = await fetchHistory({ data: { symbol: "XU100.IS", range: "1mo" } });
         return h ?? [];
       } catch { return []; }
     },

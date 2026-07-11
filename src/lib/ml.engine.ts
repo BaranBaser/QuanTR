@@ -440,32 +440,7 @@ function predictEMAProjection(closes: number[], horizon: number): number {
   return current + diff * convergence;
 }
 
-// ─── Interpolation (Cubic Spline) ────────────────────────────────────────────
-
-function cubicSplineInterpolate(xs: number[], ys: number[], targetX: number): number {
-  const n = xs.length - 1;
-  if (targetX <= xs[0]) return ys[0];
-  if (targetX >= xs[n]) return ys[n];
-
-  let i = 0;
-  for (let j = 0; j < n; j++) {
-    if (targetX >= xs[j] && targetX <= xs[j + 1]) { i = j; break; }
-  }
-
-  const h = xs[i + 1] - xs[i];
-  if (h === 0) return ys[i];
-
-  const t = (targetX - xs[i]) / h;
-  const t2 = t * t;
-  const t3 = t2 * t;
-
-  const a = ys[i];
-  const b = (i < n ? (ys[i + 1] - ys[i]) / h : 0);
-  const c = 0;
-  const d = 0;
-
-  return a + b * (targetX - xs[i]) + c * t2 + d * t3;
-}
+// ─── Interpolation (Numeric) ────────────────────────────────────────────────
 
 function interpolateNumericValues(xs: number[], ys: number[], targets: number[]): number[] {
   return targets.map((tx) => {

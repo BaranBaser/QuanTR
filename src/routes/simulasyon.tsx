@@ -65,8 +65,15 @@ function SimPage() {
 
   const totalPortfolioValue = Object.entries(portfolio).reduce((sum, [sym, pos]) => {
     const s = findStock(sym); if (!s) return sum;
-    // Her hisse kendi fiyat geçmişiyle değer kazanır (basitleştirilmiş)
-    return sum + currentPrice * pos.lots;
+    const basePrice = s.price;
+    const symSeed = (sym.charCodeAt(0) * 31);
+    let mult = 1;
+    for (let i = 1; i <= day; i++) {
+      const rseed = i * 137 + symSeed;
+      const r = () => { const x = Math.sin(rseed) * 10000; return x - Math.floor(x); };
+      mult *= (1 + (r() - 0.5) * 0.06);
+    }
+    return sum + basePrice * mult * pos.lots;
   }, 0);
   const netWorth = balance + totalPortfolioValue;
   const returnPct = ((netWorth - initialBalance) / initialBalance) * 100;

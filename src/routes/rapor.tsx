@@ -4,6 +4,7 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { FileImage, FileText, Loader2, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import { fetchStockHistory } from "@/lib/ai.functions";
@@ -21,29 +22,6 @@ export const Route = createFileRoute("/rapor")({
   }),
   component: RaporPage,
 });
-
-const SECTOR_NAMES: Record<string, string> = {
-  banking: "Bankacılık",
-  defense: "Savunma",
-  energy: "Enerji",
-  food: "Gıda",
-  holding: "Holding",
-  industry: "Sanayi",
-  mining: "Madencilik",
-  real_estate: "Gayrimenkul",
-  retail: "Perakende",
-  tech: "Teknoloji",
-  telecom: "Telekomünikasyon",
-  transport: "Ulaştırma",
-  auto: "Otomotiv",
-  chemical: "Kimya",
-  construction: "İnşaat",
-  cement: "Çimento",
-  insurance: "Sigorta",
-  textile: "Tekstil",
-  steel: "Çelik",
-  other: "Diğer",
-};
 
 function RaporPage() {
   const [symbol, setSymbol] = useState("THYAO");
@@ -89,10 +67,7 @@ function RaporPage() {
   );
 
   const sector = useMemo(() => {
-    const key = Object.keys(SECTOR_MAP).find((k) =>
-      SECTOR_MAP[k].includes(symbol),
-    );
-    return key ? SECTOR_NAMES[key] || key : "Diğer";
+    return SECTOR_MAP[symbol] || "Diğer";
   }, [symbol]);
 
   const priceHistory = useMemo(() => {
@@ -119,6 +94,7 @@ function RaporPage() {
       link.click();
     } catch (err) {
       console.error(err);
+      toast.error("PNG oluşturulurken hata oluştu.");
     }
     setGenerating(false);
   };
@@ -141,6 +117,7 @@ function RaporPage() {
       );
     } catch (err) {
       console.error(err);
+      toast.error("PDF oluşturulurken hata oluştu.");
     }
     setGenerating(false);
   };

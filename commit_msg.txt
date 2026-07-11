@@ -1,0 +1,1 @@
+Kritik buglar duzeltildi: hooks ihlali, portfoy degeri, sektor lookup, benchmark sembolu, alarm cooldown, SSR hydration. Calismayan ozellikler kaldirildi, olu kod temizlendi.

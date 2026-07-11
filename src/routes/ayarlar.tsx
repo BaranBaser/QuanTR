@@ -2,12 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, PageHeader } from "@/components/AppShell";
 import {
   User, Bell, Shield, Palette, Database, Info, Check, Sun, Moon,
-  LogOut, Mail, AlertCircle, Loader2, Wallet, Globe, Monitor,
-  Trash2, Download, RefreshCw, ChevronRight, Lock, Eye, EyeOff,
-  Smartphone, Volume2, VolumeX, Clock, HardDrive, Github,
-  Sparkles, Newspaper,
+  LogOut, Mail, AlertCircle, Loader2, Wallet, Trash2, Download,
+  RefreshCw, Lock, Eye, EyeOff, HardDrive, Clock, Github,
+  Smartphone, Volume2, Monitor, Sparkles, Newspaper,
 } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   isFirebaseConfigured,
@@ -267,11 +266,14 @@ function AccountSection() {
 // ─── Portfolio Settings ─────────────────────────────────────────────────────
 
 function PortfolioSettings() {
-  const [settings, setSettings] = useState(() => {
+  const [mounted, setMounted] = useState(false);
+  const [settings, setSettings] = useState({ defaultLots: 1, currency: "TRY", view: "table", showPnl: true, showPercent: true });
+
+  useEffect(() => {
     const raw = localStorage.getItem("stockbear.portfolioSettings");
-    if (raw) try { return JSON.parse(raw); } catch {}
-    return { defaultLots: 1, currency: "TRY", view: "table", showPnl: true, showPercent: true };
-  });
+    if (raw) try { setSettings(JSON.parse(raw)); } catch {}
+    setMounted(true);
+  }, []);
 
   const save = (next: typeof settings) => {
     setSettings(next);
@@ -339,11 +341,12 @@ function PortfolioSettings() {
 // ─── Notification Settings ──────────────────────────────────────────────────
 
 function NotificationSettings() {
-  const [settings, setSettings] = useState(() => {
+  const [settings, setSettings] = useState({ price: true, ai: true, news: false, email: true, sound: true, push: false });
+
+  useEffect(() => {
     const raw = localStorage.getItem("stockbear.notify");
-    if (raw) try { return JSON.parse(raw); } catch {}
-    return { price: true, ai: true, news: false, email: true, sound: true, push: false };
-  });
+    if (raw) try { setSettings(JSON.parse(raw)); } catch {}
+  }, []);
 
   const save = (next: typeof settings) => {
     setSettings(next);
@@ -383,13 +386,14 @@ function NotificationSettings() {
 // ─── Appearance Settings ────────────────────────────────────────────────────
 
 function AppearanceSettings() {
-  const [dark, setDark] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return localStorage.getItem("theme") !== "light";
-  });
-  const [density, setDensity] = useState(() => localStorage.getItem("stockbear.density") || "comfortable");
-  const [language, setLanguage] = useState(() => localStorage.getItem("stockbear.lang") || "tr");
-  const [chartTheme, setChartTheme] = useState(() => localStorage.getItem("stockbear.chartTheme") || "auto");
+  const [dark, setDark] = useState(true);
+  const [chartTheme, setChartTheme] = useState("auto");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setDark(localStorage.getItem("theme") !== "light");
+    setChartTheme(localStorage.getItem("stockbear.chartTheme") || "auto");
+  }, []);
 
   const toggleTheme = () => {
     const next = !dark;
@@ -398,20 +402,8 @@ function AppearanceSettings() {
     localStorage.setItem("theme", next ? "dark" : "light");
   };
 
-  const updateDensity = (v: string) => {
-    setDensity(v);
-    localStorage.setItem("stockbear.density", v);
-    toast.success("Görünüm güncellendi.");
-  };
-
-  const updateLang = (v: string) => {
-    setLanguage(v);
-    localStorage.setItem("stockbear.lang", v);
-    toast.success("Dil güncellendi.");
-  };
-
   return (
-    <SettingsCard icon={Palette} title="Görünüm" description="Tema, dil ve yoğunluk ayarları">
+    <SettingsCard icon={Palette} title="Görünüm" description="Tema ve grafik ayarları">
       <div className="space-y-4">
         <label className="flex items-center justify-between p-3 rounded-lg bg-secondary/40 cursor-pointer">
           <div className="flex items-center gap-3">
@@ -425,42 +417,13 @@ function AppearanceSettings() {
         </label>
 
         <div>
-          <label className="text-xs text-muted-foreground mb-2 block">Yoğunluk</label>
-          <div className="flex gap-2">
-            {[
-              { k: "compact", l: "Kompakt", d: "Daha az boşluk" },
-              { k: "comfortable", l: "Rahat", d: "Varsayılan" },
-              { k: "spacious", l: "Geniş", d: "Daha fazla boşluk" },
-            ].map((d) => (
-              <button key={d.k} onClick={() => updateDensity(d.k)}
-                className={`flex-1 px-3 py-2 rounded-lg text-sm border transition-colors ${
-                  density === d.k ? "bg-primary/10 border-primary text-primary" : "bg-secondary border-border hover:bg-secondary/80"
-                }`}>
-                <div className="font-medium">{d.l}</div>
-                <div className="text-[10px] text-muted-foreground">{d.d}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Dil</label>
-            <select value={language} onChange={(e) => updateLang(e.target.value)}
-              className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-              <option value="tr">Türkçe</option>
-              <option value="en">English</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Grafik Teması</label>
-            <select value={chartTheme} onChange={(e) => { setChartTheme(e.target.value); localStorage.setItem("stockbear.chartTheme", e.target.value); }}
-              className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-              <option value="auto">Otomatik</option>
-              <option value="dark">Karanlık</option>
-              <option value="light">Aydınlık</option>
-            </select>
-          </div>
+          <label className="text-xs text-muted-foreground mb-1 block">Grafik Teması</label>
+          <select value={chartTheme} onChange={(e) => { setChartTheme(e.target.value); localStorage.setItem("stockbear.chartTheme", e.target.value); }}
+            className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+            <option value="auto">Otomatik</option>
+            <option value="dark">Karanlık</option>
+            <option value="light">Aydınlık</option>
+          </select>
         </div>
       </div>
     </SettingsCard>

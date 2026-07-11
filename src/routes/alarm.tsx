@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { fetchSingleStock } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
 import { Bell, BellOff, Trash2, Plus, TrendingUp, TrendingDown, BellRing } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export const Route = createFileRoute("/alarm")({
   head: () => ({
@@ -65,14 +65,21 @@ function AlarmPage() {
     throwOnError: false,
   });
 
-  // Alarm tetikleme kontrolü ve bildirim gönderimi
+  const lastTriggeredRef = useRef<Record<string, number>>({});
+
+  // Alarm tetikleme kontrolü ve bildirim gönderimi (cooldown: 30 dk)
   useEffect(() => {
     if (!livePrices || Object.keys(livePrices).length === 0) return;
+    const now = Date.now();
+    const COOLDOWN_MS = 30 * 60 * 1000;
     for (const alarm of alarms.filter((a) => a.active)) {
       const price = livePrices[alarm.symbol];
       if (!price) continue;
       const triggered = alarm.type === "above" ? price >= alarm.targetPrice : price <= alarm.targetPrice;
       if (triggered) {
+        const lastTime = lastTriggeredRef.current[alarm.id] || 0;
+        if (now - lastTime < COOLDOWN_MS) continue;
+        lastTriggeredRef.current[alarm.id] = now;
         sendNotification(
           `stockbear Alarm: ${alarm.symbol}`,
           `${alarm.symbol} fiyatı ${price.toFixed(2)} ₺ — Hedef: ${alarm.type === "above" ? "Üzeri" : "Altı"} ${alarm.targetPrice.toFixed(2)} ₺`
