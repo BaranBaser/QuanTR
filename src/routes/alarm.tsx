@@ -121,7 +121,7 @@ function AlarmPage() {
       />
 
       <form onSubmit={submit} className="rounded-xl border border-border bg-card p-4 flex flex-wrap gap-3 items-end">
-        <div className="flex-1 min-w-[120px]">
+        <div className="flex-1 min-w-0">
           <label className="text-xs text-muted-foreground">Hisse</label>
           <input
             value={form.symbol}
@@ -130,7 +130,7 @@ function AlarmPage() {
             className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm uppercase"
           />
         </div>
-        <div className="flex-1 min-w-[120px]">
+        <div className="flex-1 min-w-0">
           <label className="text-xs text-muted-foreground">Alarm Tipi</label>
           <select
             value={form.type}
@@ -141,7 +141,7 @@ function AlarmPage() {
             <option value="below">Fiyat Altına Düşerse</option>
           </select>
         </div>
-        <div className="flex-1 min-w-[100px]">
+        <div className="flex-1 min-w-0">
           <label className="text-xs text-muted-foreground">Hedef Fiyat (TL)</label>
           <input
             type="number"

@@ -122,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex overflow-hidden">
         {/* Mobil menü overlay */}
         {mobileMenuOpen && (
           <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileMenuOpen(false)} aria-hidden="true" />
@@ -166,7 +166,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </aside>
 
-        <main id="main-content" className={`flex-1 min-w-0 p-4 md:p-6 space-y-6 ${isMobile ? "pb-24" : ""}`} tabIndex={-1}>{children}</main>
+        <main id="main-content" className={`flex-1 min-w-0 overflow-x-hidden p-4 md:p-6 space-y-6 ${isMobile ? "pb-24" : ""}`} tabIndex={-1}>{children}</main>
       </div>
 
       {/* Mobil Alt Navigasyon */}

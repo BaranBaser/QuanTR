@@ -172,15 +172,15 @@ function PortfoyPage() {
       </div>
 
       <form onSubmit={submit} className="rounded-xl border border-border bg-card p-4 flex flex-wrap gap-3 items-end">
-        <div className="flex-1 min-w-[120px]">
+        <div className="flex-1 min-w-0">
           <label htmlFor="pfSymbol" className="text-xs text-muted-foreground">Hisse (Örn: THYAO)</label>
           <input id="pfSymbol" value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value.toUpperCase() })} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm uppercase" />
         </div>
-        <div className="flex-1 min-w-[100px]">
+        <div className="flex-1 min-w-0">
           <label htmlFor="pfLots" className="text-xs text-muted-foreground">Adet</label>
           <input id="pfLots" type="number" value={form.lots} onChange={(e) => setForm({ ...form, lots: e.target.value })} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
         </div>
-        <div className="flex-1 min-w-[100px]">
+        <div className="flex-1 min-w-0">
           <label htmlFor="pfPrice" className="text-xs text-muted-foreground">Ort. Maliyet (TL)</label>
           <input id="pfPrice" type="number" step="0.01" value={form.avgPrice} onChange={(e) => setForm({ ...form, avgPrice: e.target.value })} className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm" />
         </div>
