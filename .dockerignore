@@ -1,0 +1,12 @@
+node_modules
+.output
+.wrangler
+.tanstack
+.vercel
+dist
+.git
+*.log
+.env
+.env.local
+ml-api/__pycache__
+__pycache__
