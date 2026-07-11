@@ -26,7 +26,7 @@ export function usePortfolio() {
     const raw = localStorage.getItem(PKEY);
     if (raw) try { setItems(JSON.parse(raw)); return; } catch {}
     setItems([
-      { symbol: "THYAO", lots: 100, avgPrice: 280 },
+      { symbol: "THYAO", lots: 1, avgPrice: 280 },
       { symbol: "ASELS", lots: 500, avgPrice: 62 },
       { symbol: "AKBNK", lots: 800, avgPrice: 48 },
       { symbol: "KOZAL", lots: 300, avgPrice: 26 },

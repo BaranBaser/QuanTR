@@ -240,7 +240,7 @@ function ProjectionChart({ predictions, currentPrice, shareCount }: { prediction
       Ensemble: currentPrice * shareCount,
       AltBant: currentPrice * shareCount,
       ÜstBant: currentPrice * shareCount,
-      LinearRegression: currentPrice * shareCount,
+      RidgeRegression: currentPrice * shareCount,
       MomentumExtrapolation: currentPrice * shareCount,
       MeanReversion: currentPrice * shareCount,
       EMA_Projection: currentPrice * shareCount,
@@ -277,7 +277,7 @@ function ProjectionChart({ predictions, currentPrice, shareCount }: { prediction
             <Area type="monotone" dataKey="ÜstBant" fill="currentColor" fillOpacity={0.15} stroke="none" />
             <Area type="monotone" dataKey="AltBant" fill="var(--background)" fillOpacity={1} stroke="none" />
 
-            <Line type="monotone" dataKey="LinearRegression" stroke="oklch(0.6 0.15 200)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Lineer Regresyon" />
+            <Line type="monotone" dataKey="RidgeRegression" stroke="oklch(0.6 0.15 200)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Ridge Regresyon" />
             <Line type="monotone" dataKey="MomentumExtrapolation" stroke="oklch(0.6 0.15 40)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Momentum" />
             <Line type="monotone" dataKey="MeanReversion" stroke="oklch(0.6 0.15 300)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="Mean Reversion" />
             <Line type="monotone" dataKey="EMA_Projection" stroke="oklch(0.6 0.15 100)" strokeWidth={2} strokeDasharray="4 4" dot={false} name="EMA Projeksiyonu" />

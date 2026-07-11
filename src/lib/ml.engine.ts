@@ -3,7 +3,7 @@
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type MLModelName = "LinearRegression" | "MomentumExtrapolation" | "MeanReversion" | "EMA_Projection";
+export type MLModelName = "RidgeRegression" | "MomentumExtrapolation" | "MeanReversion" | "EMA_Projection";
 
 export interface ModelPrediction {
   model: MLModelName;
@@ -385,20 +385,29 @@ export function detectRegime(
 
 // ─── Prediction Models ───────────────────────────────────────────────────────
 
-function predictLinearRegression(closes: number[], horizon: number): number {
+function predictRidgeRegression(closes: number[], horizon: number): number {
   const n = closes.length;
-  if (n < 2) return closes[closes.length - 1] || 0;
+  if (n < 10) return closes[n - 1] || 0;
+
+  const window = closes.slice(-Math.min(60, n));
+  const wLen = window.length;
+  const alpha = 1.0;
+
   let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < wLen; i++) {
     sumX += i;
-    sumY += closes[i];
-    sumXY += i * closes[i];
+    sumY += window[i];
+    sumXY += i * window[i];
     sumX2 += i * i;
   }
-  const denom = n * sumX2 - sumX * sumX;
-  const slope = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom;
-  const intercept = (sumY - slope * sumX) / n;
-  return slope * (n - 1 + horizon) + intercept;
+
+  const denom = wLen * sumX2 - sumX * sumX + alpha * wLen;
+  const slope = denom === 0 ? 0 : (wLen * sumXY - sumX * sumY) / denom;
+  const intercept = (sumY - slope * sumX) / wLen;
+
+  const predicted = slope * (wLen - 1 + horizon) + intercept;
+  const current = closes[n - 1];
+  return Math.max(current * 0.7, Math.min(current * 1.3, predicted));
 }
 
 function predictMomentum(closes: number[], horizon: number): number {
@@ -512,7 +521,7 @@ export function interpolatePredictions(
 // ─── Walk-Forward Backtest ────────────────────────────────────────────────────
 
 function predictEnsembleRaw(closes: number[], horizon: number): number {
-  const models = [predictLinearRegression, predictMomentum, predictMeanReversion, predictEMAProjection];
+  const models = [predictRidgeRegression, predictMomentum, predictMeanReversion, predictEMAProjection];
   const weights = [0.25, 0.25, 0.25, 0.25];
   let result = 0;
   for (let i = 0; i < models.length; i++) {
@@ -532,7 +541,7 @@ async function walkForwardBacktest(
   let correctDirection = 0;
   let count = 0;
 
-  const fns = [predictLinearRegression, predictMomentum, predictMeanReversion, predictEMAProjection];
+  const fns = [predictRidgeRegression, predictMomentum, predictMeanReversion, predictEMAProjection];
 
   for (const i of validPoints) {
     const sliceLen = i + 1;
@@ -585,7 +594,7 @@ async function calculateEnsemblePrediction(
   const currentPrice = closes[closes.length - 1] || 0;
 
   const models: Array<{ name: MLModelName; fn: (c: number[], h: number) => number }> = [
-    { name: "LinearRegression", fn: predictLinearRegression },
+    { name: "RidgeRegression", fn: predictRidgeRegression },
     { name: "MomentumExtrapolation", fn: predictMomentum },
     { name: "MeanReversion", fn: predictMeanReversion },
     { name: "EMA_Projection", fn: predictEMAProjection },

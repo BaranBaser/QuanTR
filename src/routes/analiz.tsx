@@ -30,7 +30,7 @@ function AnalizPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [showAiAnalysis, setShowAiAnalysis] = useState(false);
-  const [shareCount, setShareCount] = useState(100);
+  const [shareCount, setShareCount] = useState(1);
 
   const { data: liveStock, isLoading: loadingLive } = useQuery({
     queryKey: ["stock-live", selectedSymbol],

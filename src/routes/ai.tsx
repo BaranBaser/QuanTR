@@ -173,7 +173,7 @@ export const Route = createFileRoute("/ai")({
 
 function AIEnginePage() {
   const [selectedSymbol, setSelectedSymbol] = useState("THYAO");
-  const [shareCount, setShareCount] = useState(100);
+  const [shareCount, setShareCount] = useState(1);
   const fetchAi = useServerFn(fetchSingleAiAnalysis);
   const fetchTopAi = useServerFn(fetchTechnicalSignals);
 

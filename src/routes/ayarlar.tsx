@@ -1,7 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, PageHeader } from "@/components/AppShell";
-import { User, Bell, Shield, Palette, Check, Sun, Moon, LogOut, Trash2 } from "lucide-react";
+import { User, Bell, Shield, Palette, Check, Sun, Moon, LogOut, Trash2, Mail, AlertCircle, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import {
+  auth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  signOut,
+  onAuthStateChanged,
+  updateProfile,
+  type User as FirebaseUser,
+} from "@/lib/firebase";
 
 export const Route = createFileRoute("/ayarlar")({
   head: () => ({
@@ -14,49 +25,87 @@ export const Route = createFileRoute("/ayarlar")({
   component: SettingsPage,
 });
 
-interface StockBearUser {
-  name: string;
-  email: string;
-}
-
 function AccountSection() {
-  const [user, setUser] = useState<StockBearUser | null>(null);
-  const [name, setName] = useState("");
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   useEffect(() => {
-    const raw = localStorage.getItem("stockbear.user");
-    if (raw) try { setUser(JSON.parse(raw)); } catch {}
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false);
+    });
+    return unsub;
   }, []);
 
-  const login = () => {
-    if (!name.trim() || !email.trim()) return;
-    const u = { name: name.trim(), email: email.trim() };
-    localStorage.setItem("stockbear.user", JSON.stringify(u));
-    setUser(u);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      if (isSignUp) {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        if (name.trim()) {
+          await updateProfile(cred.user, { displayName: name.trim() });
+        }
+        await sendEmailVerification(cred.user);
+        setSuccess("Kayıt başarılı! E-posta adresinize doğrulama linki gönderildi. Lütfen e-postanızı kontrol edin.");
+      } else {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        if (!cred.user.emailVerified) {
+          await sendEmailVerification(cred.user);
+          setSuccess("E-posta adresiniz doğrulanmamış. Doğrulama linki yeniden gönderildi.");
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Bir hata oluştu";
+      if (msg.includes("auth/email-already-in-use")) setError("Bu e-posta adresi zaten kayıtlı.");
+      else if (msg.includes("auth/invalid-email")) setError("Geçersiz e-posta adresi.");
+      else if (msg.includes("auth/weak-password")) setError("Şifre en az 6 karakter olmalıdır.");
+      else if (msg.includes("auth/user-not-found")) setError("Bu e-posta ile kayıtlı kullanıcı bulunamadı.");
+      else if (msg.includes("auth/wrong-password")) setError("Şifre hatalı.");
+      else if (msg.includes("auth/too-many-requests")) setError("Çok fazla deneme. Lütfen biraz bekleyin.");
+      else setError(msg);
+    }
+    setAuthLoading(false);
   };
 
-  const demoLogin = () => {
-    const u = { name: "Demo Kullanıcı", email: "demo@stockbear.app" };
-    localStorage.setItem("stockbear.user", JSON.stringify(u));
-    setUser(u);
+  const handleResetPassword = async () => {
+    if (!email.trim()) { setError("Şifre sıfırlama için e-posta adresinizi girin."); return; }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetSent(true);
+      setSuccess("Şifre sıfırlama linki e-posta adresinize gönderildi.");
+    } catch {
+      setError("Şifre sıfırlama gönderilemedi. E-posta adresinizi kontrol edin.");
+    }
   };
 
-  const logout = () => {
-    localStorage.removeItem("stockbear.user");
-    setUser(null);
-    setName("");
+  const logout = async () => {
+    await signOut(auth);
     setEmail("");
+    setPassword("");
+    setName("");
+    setSuccess("");
+    setError("");
   };
 
-  const deleteAccount = () => {
-    localStorage.removeItem("stockbear.user");
-    localStorage.removeItem("stockbear.profile");
-    localStorage.removeItem("stockbear.notify");
-    setUser(null);
-    setName("");
-    setEmail("");
-  };
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 flex items-center justify-center gap-2 text-muted-foreground">
+        <Loader2 className="w-4 h-4 animate-spin" /> Yükleniyor...
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl border border-border bg-card p-6 space-y-4">
@@ -65,51 +114,106 @@ function AccountSection() {
       </h3>
 
       {!user ? (
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Ad</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Adınız"
-              className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm"
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {isSignUp && (
+            <div>
+              <label className="text-xs text-muted-foreground">Ad Soyad</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Adınız Soyadınız"
+                className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+          )}
           <div>
             <label className="text-xs text-muted-foreground">E-posta</label>
             <input
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ornek@email.com"
+              required
               className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm"
             />
           </div>
-          <div className="flex gap-2">
-            <button onClick={login} className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium hover:bg-primary/90">
-              Giriş Yap
+          <div>
+            <label className="text-xs text-muted-foreground">Şifre</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              minLength={6}
+              className="w-full mt-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-destructive text-xs bg-destructive/10 rounded-lg p-2">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {error}
+            </div>
+          )}
+          {success && (
+            <div className="flex items-center gap-2 text-[color:var(--success)] text-xs bg-[color:var(--success)]/10 rounded-lg p-2">
+              <Check className="w-3.5 h-3.5 shrink-0" /> {success}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" disabled={authLoading} className="flex items-center gap-2 bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+              {authLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {isSignUp ? "Kayıt Ol" : "Giriş Yap"}
             </button>
-            <button onClick={demoLogin} className="bg-secondary border border-border rounded-lg px-4 py-2 text-sm font-medium hover:bg-secondary/80">
-              Demo Olarak Devam Et
+            <button type="button" onClick={() => { setIsSignUp(!isSignUp); setError(""); setSuccess(""); }} className="bg-secondary border border-border rounded-lg px-4 py-2 text-sm font-medium hover:bg-secondary/80">
+              {isSignUp ? "Zaten hesabım var" : "Hesap Oluştur"}
             </button>
           </div>
-        </div>
+
+          {!isSignUp && (
+            <button type="button" onClick={handleResetPassword} className="text-xs text-muted-foreground hover:text-primary underline">
+              Şifremi Unuttum
+            </button>
+          )}
+
+          {isSignUp && (
+            <p className="text-[10px] text-muted-foreground">
+              Kayıt olarak Kullanım Koşullarını ve Gizlilik Politikamızı kabul etmiş olursunuz.
+            </p>
+          )}
+        </form>
       ) : (
         <div className="space-y-3">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xl">
-              {user.name.charAt(0).toUpperCase()}
+              {(user.displayName?.charAt(0) || user.email?.charAt(0) || "?").toUpperCase()}
             </div>
             <div>
-              <div className="font-medium">{user.name}</div>
+              <div className="font-medium">{user.displayName || "Kullanıcı"}</div>
               <div className="text-sm text-muted-foreground">{user.email}</div>
             </div>
           </div>
+
+          {!user.emailVerified && (
+            <div className="flex items-center gap-2 text-yellow-500 text-xs bg-yellow-500/10 rounded-lg p-2">
+              <Mail className="w-3.5 h-3.5 shrink-0" />
+              E-posta adresiniz doğrulanmamış.
+              <button onClick={() => sendEmailVerification(user).then(() => setSuccess("Doğrulama linki gönderildi!"))} className="underline hover:text-yellow-600">
+                Yeniden Gönder
+              </button>
+            </div>
+          )}
+
+          {success && (
+            <div className="flex items-center gap-2 text-[color:var(--success)] text-xs bg-[color:var(--success)]/10 rounded-lg p-2">
+              <Check className="w-3.5 h-3.5 shrink-0" /> {success}
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button onClick={logout} className="flex items-center gap-2 bg-secondary border border-border rounded-lg px-4 py-2 text-sm font-medium hover:bg-secondary/80">
               <LogOut className="w-4 h-4" /> Çıkış Yap
-            </button>
-            <button onClick={deleteAccount} className="flex items-center gap-2 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg px-4 py-2 text-sm font-medium hover:bg-destructive/20">
-              <Trash2 className="w-4 h-4" /> Hesap Sil
             </button>
           </div>
         </div>
