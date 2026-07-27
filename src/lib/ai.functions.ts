@@ -216,14 +216,47 @@ export const fetchStockHistory = createServerFn({ method: "GET" })
       const result = await yfFetch(formatYfSymbol(data.symbol), data.range);
       if (!result?.timestamp || !result?.indicators?.quote?.[0]) return [];
       const quotes = result.indicators.quote[0];
-      return result.timestamp.map((ts: number, i: number) => ({
-        date: new Date(ts * 1000).toISOString(),
-        open: quotes.open[i],
-        high: quotes.high[i],
-        low: quotes.low[i],
-        close: quotes.close[i],
-        volume: quotes.volume[i],
-      }));
+      
+      let lastValidClose = 0;
+      
+      // Data Sanitization - Forward Fill
+      const history = result.timestamp.map((ts: number, i: number) => {
+        let close = quotes.close[i];
+        if (close === null || close === undefined || close === 0) {
+          close = lastValidClose;
+        } else {
+          lastValidClose = close;
+        }
+
+        const open = quotes.open[i] || close;
+        const high = quotes.high[i] || close;
+        const low = quotes.low[i] || close;
+        const volume = quotes.volume[i] || 0;
+
+        return {
+          date: new Date(ts * 1000).toISOString(),
+          open,
+          high,
+          low,
+          close,
+          volume,
+        };
+      });
+
+      // Backfill for leading zeros (if the first few records are null/0)
+      const firstValid = history.find((h: any) => h.close > 0)?.close || 0;
+      if (firstValid > 0) {
+        history.forEach((h: any) => {
+          if (h.close === 0) {
+            h.close = firstValid;
+            h.open = firstValid;
+            h.high = firstValid;
+            h.low = firstValid;
+          }
+        });
+      }
+
+      return history;
     } catch (e) {
       console.warn("fetchHistory error:", data.symbol, e);
       return [];
@@ -463,9 +496,21 @@ export const fetchTechnicalSignals = createServerFn({ method: "GET" })
           const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
           if (!res.ok) return null;
           const json = await res.json();
-          const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close as number[] | undefined;
+          const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close as (number | null)[] | undefined;
           if (!closes) return null;
-          const history = closes.filter((c): c is number => c != null).map((c) => ({ close: c }));
+          
+          let lastValid = 0;
+          const cleanedCloses = closes.map((c) => {
+            if (c === null || c === undefined || c === 0) {
+               return lastValid;
+            }
+            lastValid = c;
+            return c;
+          });
+          
+          const firstValidClose = cleanedCloses.find((c) => c > 0) || 0;
+          const history = cleanedCloses.map((c) => ({ close: c === 0 ? firstValidClose : c }));
+          
           if (history.length < 30) return null;
           const analysis = runSimpleTechnicalEngine(history, sym);
           if (analysis.decision === "AL" || analysis.decision === "SAT") {
