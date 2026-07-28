@@ -530,99 +530,31 @@ export const fetchTechnicalSignals = createServerFn({ method: "GET" })
 
 // ─── Kronos Foundation Model Prediction ─────────────────────────────────────
 
-const KRONOS_HF_URL = process.env.KRONOS_HF_URL || "https://YOUR-USERNAME-kronos-api.hf.space";
-
 export const fetchKronosPrediction = createServerFn({ method: "GET" })
   .validator((input: unknown) => {
     const obj = input as { symbol?: string; predDays?: number };
     return {
       symbol: (obj?.symbol || "THYAO").toUpperCase(),
-      predDays: obj?.predDays || 5,
+      predDays: obj?.predDays || 14,
     };
   })
   .handler(async ({ data }) => {
     try {
-      // 1. Yahoo Finance'den OHLCV geçmişini çek (son 1 yıl)
-      const result = await yfFetch(formatYfSymbol(data.symbol), "1y");
-      if (!result?.timestamp || !result?.indicators?.quote?.[0]) {
-        return { symbol: data.symbol, error: "Geçmiş veri alınamadı", predictions: [] };
-      }
+      const yfSym = formatYfSymbol(data.symbol);
+      const KRONOS_API = "https://demolifted-kronos-market-forecast.hf.space/api/predict";
 
-      const quotes = result.indicators.quote[0];
-      const timestamps = result.timestamp as number[];
-
-      // Forward fill ile temizlenmiş OHLCV hazırla
-      let lastValidClose = 0;
-      const ohlcvData: Array<{
-        open: number; high: number; low: number; close: number;
-        volume: number; timestamp: string;
-      }> = [];
-
-      for (let i = 0; i < timestamps.length; i++) {
-        let close = quotes.close[i];
-        if (close === null || close === undefined || close === 0) {
-          close = lastValidClose;
-        } else {
-          lastValidClose = close;
-        }
-
-        ohlcvData.push({
-          open: quotes.open[i] || close,
-          high: quotes.high[i] || close,
-          low: quotes.low[i] || close,
-          close,
-          volume: quotes.volume[i] || 0,
-          timestamp: new Date(timestamps[i] * 1000).toISOString(),
-        });
-      }
-
-      // İlk geçerli değerle backfill
-      const firstValid = ohlcvData.find(h => h.close > 0)?.close || 0;
-      if (firstValid > 0) {
-        ohlcvData.forEach(h => {
-          if (h.close === 0) {
-            h.close = firstValid;
-            h.open = firstValid;
-            h.high = firstValid;
-            h.low = firstValid;
-          }
-        });
-      }
-
-      // Kronos max context = 512, son 400 bar'ı al
-      const context = ohlcvData.slice(-Math.min(400, ohlcvData.length));
-
-      if (context.length < 30) {
-        return { symbol: data.symbol, error: "Yeterli geçmiş veri yok", predictions: [] };
-      }
-
-      // 2. Gelecek zaman damgalarını oluştur
-      const lastDate = new Date(context[context.length - 1].timestamp);
-      const yTimestamps: string[] = [];
-      for (let d = 1; d <= data.predDays; d++) {
-        const future = new Date(lastDate);
-        future.setDate(future.getDate() + d);
-        // Hafta sonlarını atla
-        while (future.getDay() === 0 || future.getDay() === 6) {
-          future.setDate(future.getDate() + 1);
-        }
-        yTimestamps.push(future.toISOString());
-      }
-
-      // 3. Kronos HF Space'e istek at
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120_000); // 2 dakika timeout
+      const timeout = setTimeout(() => controller.abort(), 120_000);
 
-      const response = await fetch(`${KRONOS_HF_URL}/predict`, {
+      const response = await fetch(KRONOS_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          symbol: data.symbol,
-          data: context,
-          y_timestamps: yTimestamps,
-          temperature: 1.0,
-          top_p: 0.9,
-          sample_count: 1,
+          provider: "yahoo",
+          symbol: yfSym,
+          interval: "1d",
+          horizon: data.predDays,
+          model: "small", // "small" model is faster
         }),
         signal: controller.signal,
       });
@@ -636,7 +568,22 @@ export const fetchKronosPrediction = createServerFn({ method: "GET" })
       }
 
       const json = await response.json();
-      const predictions = json.predictions || [];
+      
+      // json format: { context: [...], forecast: { candles: [...], p10: [...], p90: [...] } }
+      if (!json.forecast || !json.forecast.candles) {
+        return { symbol: data.symbol, error: "Beklenmeyen API yanıtı", predictions: [] };
+      }
+
+      const candles = json.forecast.candles;
+      const p10 = json.forecast.p10;
+      const p90 = json.forecast.p90;
+
+      const predictions = candles.map((c: any, index: number) => ({
+        timestamp: new Date(c.time * 1000).toISOString(),
+        expectedPrice: c.close,
+        lowerBand: p10[index]?.close || c.close,
+        upperBand: p90[index]?.close || c.close,
+      }));
 
       return {
         symbol: data.symbol,
