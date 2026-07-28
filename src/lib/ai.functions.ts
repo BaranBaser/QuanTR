@@ -578,11 +578,12 @@ export const fetchKronosPrediction = createServerFn({ method: "GET" })
       const p10 = json.forecast.p10;
       const p90 = json.forecast.p90;
 
-      const predictions = candles.map((c: any, index: number) => ({
+      const predictions = candles.map((c: any) => ({
         timestamp: new Date(c.time * 1000).toISOString(),
-        expectedPrice: c.close,
-        lowerBand: p10[index]?.close || c.close,
-        upperBand: p90[index]?.close || c.close,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
       }));
 
       return {
