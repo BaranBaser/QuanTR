@@ -12,6 +12,8 @@ interface AiAnalysisResultProps {
   kronosPredictions?: KronosPrediction[];
   kronosLoading?: boolean;
   kronosError?: string;
+  kronosDays?: number;
+  onKronosDaysChange?: (days: number) => void;
 }
 
 function mapHorizonToLabel(days: number) {
@@ -247,7 +249,7 @@ function ProjectionChart({ predictions, currentPrice, shareCount }: { prediction
   );
 }
 
-export function AiAnalysisResult({ analysis, shareCount, isLoading = false, kronosPredictions, kronosLoading = false, kronosError }: AiAnalysisResultProps) {
+export function AiAnalysisResult({ analysis, shareCount, isLoading = false, kronosPredictions, kronosLoading = false, kronosError, kronosDays = 14, onKronosDaysChange }: AiAnalysisResultProps) {
   if (isLoading) {
     return (
       <div className="py-20 flex flex-col items-center justify-center text-muted-foreground animate-pulse border border-border bg-card rounded-xl">
@@ -318,7 +320,17 @@ export function AiAnalysisResult({ analysis, shareCount, isLoading = false, kron
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-5 h-5 text-amber-500" />
           <div className="font-semibold text-sm">🧠 Kronos AI Tahmini (Foundation Model)</div>
-          <span className="ml-auto text-[10px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full font-bold">NeoQuasar/Kronos-small</span>
+          <div className="ml-auto flex items-center gap-1 bg-secondary/30 rounded-lg p-1 border border-border">
+            {[5, 14, 30].map(days => (
+              <button
+                key={days}
+                onClick={() => onKronosDaysChange?.(days)}
+                className={`px-3 py-1 text-xs rounded-md transition-colors ${kronosDays === days ? "bg-amber-500 text-white font-bold" : "text-muted-foreground hover:bg-secondary"}`}
+              >
+                {days} Gün
+              </button>
+            ))}
+          </div>
         </div>
         <p className="text-xs text-muted-foreground mb-3">
           12 milyar K-line kaydı üzerinde eğitilmiş Transformer modeli. OHLCV verilerini doğrudan anlayarak gelecek fiyat tahminleri üretir.
@@ -334,58 +346,53 @@ export function AiAnalysisResult({ analysis, shareCount, isLoading = false, kron
             Kronos şu an devre dışı: {kronosError}
           </div>
         ) : kronosPredictions && kronosPredictions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground">
-                  <th className="text-left py-2 px-2 font-semibold">Tarih</th>
-                  <th className="text-right py-2 px-2 font-semibold">Açılış</th>
-                  <th className="text-right py-2 px-2 font-semibold">En Yüksek</th>
-                  <th className="text-right py-2 px-2 font-semibold">En Düşük</th>
-                  <th className="text-right py-2 px-2 font-semibold">Kapanış</th>
-                  <th className="text-right py-2 px-2 font-semibold">Değişim</th>
-                </tr>
-              </thead>
-              <tbody>
-                {kronosPredictions.map((pred, i) => {
-                  const changePercent = i === 0 && analysis
-                    ? ((pred.close - analysis.currentPrice) / analysis.currentPrice) * 100
-                    : i > 0
-                    ? ((pred.close - kronosPredictions[i - 1].close) / kronosPredictions[i - 1].close) * 100
-                    : 0;
-                  const isUp = changePercent >= 0;
-                  return (
-                    <tr key={pred.timestamp} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                      <td className="py-2 px-2 font-medium">
-                        {new Date(pred.timestamp).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" })}
-                      </td>
-                      <td className="text-right py-2 px-2">{pred.open.toFixed(2)} ₺</td>
-                      <td className="text-right py-2 px-2 text-[color:var(--success)]">{pred.high.toFixed(2)} ₺</td>
-                      <td className="text-right py-2 px-2 text-destructive">{pred.low.toFixed(2)} ₺</td>
-                      <td className="text-right py-2 px-2 font-bold">{pred.close.toFixed(2)} ₺</td>
-                      <td className={`text-right py-2 px-2 font-bold ${isUp ? "text-[color:var(--success)]" : "text-destructive"}`}>
-                        {isUp ? "+" : ""}{changePercent.toFixed(2)}%
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {analysis && kronosPredictions.length > 0 && (
-              <div className="mt-3 p-3 bg-secondary/30 rounded-lg flex items-center justify-between">
-                <span className="text-xs text-muted-foreground font-medium">Toplam Kronos Beklentisi</span>
-                {(() => {
-                  const lastPred = kronosPredictions[kronosPredictions.length - 1];
-                  const totalChange = ((lastPred.close - analysis.currentPrice) / analysis.currentPrice) * 100;
-                  const isUp = totalChange >= 0;
-                  return (
-                    <span className={`text-sm font-black ${isUp ? "text-[color:var(--success)]" : "text-destructive"}`}>
-                      {isUp ? "📈" : "📉"} {isUp ? "+" : ""}{totalChange.toFixed(2)}% → {lastPred.close.toFixed(2)} ₺
-                    </span>
-                  );
-                })()}
+          <div>
+            {analysis && (
+              <div className="mb-4 p-4 bg-secondary/30 rounded-lg flex items-center justify-between border border-border/50">
+                <div>
+                  <div className="text-xs text-muted-foreground font-medium mb-1">Kronos Sinyali</div>
+                  {(() => {
+                    const lastPred = kronosPredictions[kronosPredictions.length - 1];
+                    const totalChange = ((lastPred.close - analysis.currentPrice) / analysis.currentPrice) * 100;
+                    const isUp = totalChange >= 0;
+                    const isBuy = totalChange > 2;
+                    const isSell = totalChange < -2;
+                    const signal = isBuy ? "AL" : isSell ? "SAT" : "NÖTR";
+                    const color = isBuy ? "text-[color:var(--success)]" : isSell ? "text-destructive" : "text-amber-500";
+                    return (
+                      <div className="flex items-center gap-3">
+                        <div className={`text-lg font-black ${color} px-3 py-1 rounded bg-background border border-border shadow-sm`}>
+                          {signal}
+                        </div>
+                        <div className={`text-sm font-bold ${isUp ? "text-[color:var(--success)]" : "text-destructive"}`}>
+                          Beklenen Getiri: {isUp ? "+" : ""}{totalChange.toFixed(2)}% → {lastPred.close.toFixed(2)} ₺
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
             )}
+            
+            <div className="h-[300px] w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={kronosPredictions.map(p => ({
+                  name: new Date(p.timestamp).toLocaleDateString("tr-TR", { day: "2-digit", month: "short" }),
+                  Kapanış: parseFloat((p.close * shareCount).toFixed(2)),
+                  AltBant: parseFloat((p.low * shareCount).toFixed(2)),
+                  ÜstBant: parseFloat((p.high * shareCount).toFixed(2)),
+                }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.1} vertical={false} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "currentColor", opacity: 0.5 }} interval="preserveStartEnd" />
+                  <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "currentColor", opacity: 0.5 }} width={50} />
+                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ fontSize: '12px', padding: '2px 0' }} />
+                  <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                  <Area type="monotone" dataKey="ÜstBant" fill="currentColor" fillOpacity={0.15} stroke="none" />
+                  <Area type="monotone" dataKey="AltBant" fill="var(--background)" fillOpacity={1} stroke="none" />
+                  <Line type="monotone" dataKey="Kapanış" stroke="var(--primary)" strokeWidth={3} dot={{ r: 2, fill: "var(--primary)" }} activeDot={{ r: 5 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         ) : (
           <div className="text-xs text-muted-foreground py-4 text-center bg-secondary/30 rounded-lg">

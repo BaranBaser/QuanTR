@@ -32,6 +32,7 @@ function AnalizPage() {
   const [showSearch, setShowSearch] = useState(false);
   const [showAiAnalysis, setShowAiAnalysis] = useState(false);
   const [shareCount, setShareCount] = useState(1);
+  const [kronosDays, setKronosDays] = useState(14);
 
   const { data: liveStock, isLoading: loadingLive } = useQuery({
     queryKey: ["stock-live", selectedSymbol],
@@ -79,10 +80,10 @@ function AnalizPage() {
   });
 
   const { data: kronosData, isLoading: kronosLoading, error: kronosError } = useQuery({
-    queryKey: ["kronos-analysis", selectedSymbol],
+    queryKey: ["kronos-analysis", selectedSymbol, kronosDays],
     queryFn: async () => {
       try {
-        const res = await fetchKronos({ data: { symbol: selectedSymbol, predDays: 5 } });
+        const res = await fetchKronos({ data: { symbol: selectedSymbol, predDays: kronosDays } });
         if (res.error) throw new Error(res.error);
         return res.predictions;
       } catch (e) {
@@ -289,6 +290,8 @@ function AnalizPage() {
               kronosPredictions={kronosData || []}
               kronosLoading={kronosLoading}
               kronosError={kronosError instanceof Error ? kronosError.message : undefined}
+              kronosDays={kronosDays}
+              onKronosDaysChange={setKronosDays}
             />
           </div>
         </div>

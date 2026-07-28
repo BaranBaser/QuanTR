@@ -575,8 +575,6 @@ export const fetchKronosPrediction = createServerFn({ method: "GET" })
       }
 
       const candles = json.forecast.candles;
-      const p10 = json.forecast.p10;
-      const p90 = json.forecast.p90;
 
       const predictions = candles.map((c: any) => ({
         timestamp: new Date(c.time * 1000).toISOString(),

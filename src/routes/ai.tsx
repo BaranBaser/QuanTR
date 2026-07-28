@@ -173,6 +173,7 @@ export const Route = createFileRoute("/ai")({
 function AIEnginePage() {
   const [selectedSymbol, setSelectedSymbol] = useState("THYAO");
   const [shareCount, setShareCount] = useState(1);
+  const [kronosDays, setKronosDays] = useState(14);
   const fetchAi = useServerFn(fetchSingleAiAnalysis);
   const fetchTopAi = useServerFn(fetchTechnicalSignals);
   const fetchKronos = useServerFn(fetchKronosPrediction);
@@ -186,18 +187,18 @@ function AIEnginePage() {
   });
 
   const { data: aiData, isLoading } = useQuery({
-    queryKey: ["ai-analysis-full", selectedSymbol],
+    queryKey: ["ai-analysis", selectedSymbol],
     queryFn: async () => {
-      try { return await fetchAi({ data: { symbol: selectedSymbol, dataCount: 252 } }); } catch (e) { console.warn("fetchSingleAiAnalysis error:", e); return null; }
+      try { return await fetchAi({ data: { symbol: selectedSymbol } }); } catch (e) { console.warn("fetchAiAnalysis error:", e); return null; }
     },
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: kronosData, isLoading: kronosLoading, error: kronosError } = useQuery({
-    queryKey: ["kronos-analysis", selectedSymbol],
+    queryKey: ["kronos-analysis", selectedSymbol, kronosDays],
     queryFn: async () => {
       try {
-        const res = await fetchKronos({ data: { symbol: selectedSymbol, predDays: 5 } });
+        const res = await fetchKronos({ data: { symbol: selectedSymbol, predDays: kronosDays } });
         if (res.error) throw new Error(res.error);
         return res.predictions;
       } catch (e) {
@@ -322,6 +323,8 @@ function AIEnginePage() {
           kronosPredictions={kronosData || []}
           kronosLoading={kronosLoading}
           kronosError={kronosError instanceof Error ? kronosError.message : undefined}
+          kronosDays={kronosDays}
+          onKronosDaysChange={setKronosDays}
         />
 
         {/* BACKTEST SECTION */}
