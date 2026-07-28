@@ -23,6 +23,14 @@ export interface HorizonPrediction {
   models: ModelPrediction[];
 }
 
+export interface KronosPrediction {
+  timestamp: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
 export interface EngineResult {
   decision: "AL" | "SAT" | "BEKLE";
   confidenceScore: number;
@@ -55,6 +63,7 @@ export interface EngineResult {
   resistanceLevels: number[];
   interpolatedPredictions?: HorizonPrediction[];
   basePredictions?: HorizonPrediction[];
+  kronosPredictions?: KronosPrediction[];
 }
 
 export interface SimpleTechnicalResult {

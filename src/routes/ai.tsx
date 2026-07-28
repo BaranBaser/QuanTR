@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, PageHeader } from "@/components/AppShell";
-import { fetchSingleAiAnalysis, fetchTechnicalSignals, fetchStockHistory } from "@/lib/ai.functions";
+import { fetchSingleAiAnalysis, fetchTechnicalSignals, fetchStockHistory, fetchKronosPrediction } from "@/lib/ai.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
@@ -175,6 +175,7 @@ function AIEnginePage() {
   const [shareCount, setShareCount] = useState(1);
   const fetchAi = useServerFn(fetchSingleAiAnalysis);
   const fetchTopAi = useServerFn(fetchTechnicalSignals);
+  const fetchKronos = useServerFn(fetchKronosPrediction);
 
   const { data: topAiData, isLoading: topLoading } = useQuery({
     queryKey: ["ai-top-analysis"],
@@ -190,6 +191,22 @@ function AIEnginePage() {
       try { return await fetchAi({ data: { symbol: selectedSymbol, dataCount: 252 } }); } catch (e) { console.warn("fetchSingleAiAnalysis error:", e); return null; }
     },
     staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: kronosData, isLoading: kronosLoading, error: kronosError } = useQuery({
+    queryKey: ["kronos-analysis", selectedSymbol],
+    queryFn: async () => {
+      try {
+        const res = await fetchKronos({ data: { symbol: selectedSymbol, predDays: 5 } });
+        if (res.error) throw new Error(res.error);
+        return res.predictions;
+      } catch (e) {
+        console.warn("fetchKronos error:", e);
+        throw e;
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
   });
 
   // Combine popular stocks with all available symbols so nothing is missing
@@ -302,6 +319,9 @@ function AIEnginePage() {
           analysis={aiData?.analysis || null}
           shareCount={shareCount}
           isLoading={isLoading}
+          kronosPredictions={kronosData || []}
+          kronosLoading={kronosLoading}
+          kronosError={kronosError instanceof Error ? kronosError.message : undefined}
         />
 
         {/* BACKTEST SECTION */}

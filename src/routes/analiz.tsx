@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell, PageHeader, Sparkline, genLine } from "@/components/AppShell";
 import { stocks, findStock, SECTOR_MAP } from "@/lib/market-data";
 import { useServerFn } from "@tanstack/react-start";
-import { fetchSingleStock, fetchStockHistory, fetchBistData, fetchSingleAiAnalysis } from "@/lib/ai.functions";
+import { fetchSingleStock, fetchStockHistory, fetchBistData, fetchSingleAiAnalysis, fetchKronosPrediction } from "@/lib/ai.functions";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown, Star, RefreshCw, BarChart3, Activity, Clock, Target, Zap, Search, Brain } from "lucide-react";
 import { useWatchlist } from "@/lib/storage";
@@ -27,6 +27,7 @@ function AnalizPage() {
   const fetchHistory = useServerFn(fetchStockHistory);
   const fetchBist = useServerFn(fetchBistData);
   const fetchAi = useServerFn(fetchSingleAiAnalysis);
+  const fetchKronos = useServerFn(fetchKronosPrediction);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [showAiAnalysis, setShowAiAnalysis] = useState(false);
@@ -75,6 +76,23 @@ function AnalizPage() {
     },
     enabled: showAiAnalysis,
     staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: kronosData, isLoading: kronosLoading, error: kronosError } = useQuery({
+    queryKey: ["kronos-analysis", selectedSymbol],
+    queryFn: async () => {
+      try {
+        const res = await fetchKronos({ data: { symbol: selectedSymbol, predDays: 5 } });
+        if (res.error) throw new Error(res.error);
+        return res.predictions;
+      } catch (e) {
+        console.warn("fetchKronos error:", e);
+        throw e;
+      }
+    },
+    enabled: showAiAnalysis,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
   });
 
   const popularStocks = useMemo(() => {
@@ -268,6 +286,9 @@ function AnalizPage() {
               analysis={aiData?.analysis || null}
               shareCount={shareCount}
               isLoading={loadingAi}
+              kronosPredictions={kronosData || []}
+              kronosLoading={kronosLoading}
+              kronosError={kronosError instanceof Error ? kronosError.message : undefined}
             />
           </div>
         </div>

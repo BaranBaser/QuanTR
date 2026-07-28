@@ -1,6 +1,6 @@
-import { Brain, CheckCircle2, AlertTriangle, AlertCircle, Target, Zap, Activity, Shield, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Brain, CheckCircle2, AlertTriangle, AlertCircle, Target, Zap, Activity, Shield, TrendingUp, TrendingDown, Minus, Sparkles } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
-import type { EngineResult, HorizonPrediction } from "@/lib/ml.engine";
+import type { EngineResult, HorizonPrediction, KronosPrediction } from "@/lib/ml.engine";
 
 type Prediction = HorizonPrediction;
 type AnalysisData = EngineResult;
@@ -9,6 +9,9 @@ interface AiAnalysisResultProps {
   analysis: AnalysisData | null;
   shareCount: number;
   isLoading?: boolean;
+  kronosPredictions?: KronosPrediction[];
+  kronosLoading?: boolean;
+  kronosError?: string;
 }
 
 function mapHorizonToLabel(days: number) {
@@ -244,7 +247,7 @@ function ProjectionChart({ predictions, currentPrice, shareCount }: { prediction
   );
 }
 
-export function AiAnalysisResult({ analysis, shareCount, isLoading }: AiAnalysisResultProps) {
+export function AiAnalysisResult({ analysis, shareCount, isLoading = false, kronosPredictions, kronosLoading = false, kronosError }: AiAnalysisResultProps) {
   if (isLoading) {
     return (
       <div className="py-20 flex flex-col items-center justify-center text-muted-foreground animate-pulse border border-border bg-card rounded-xl">
@@ -308,6 +311,87 @@ export function AiAnalysisResult({ analysis, shareCount, isLoading }: AiAnalysis
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Kronos AI Foundation Model Tahminleri */}
+      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles className="w-5 h-5 text-amber-500" />
+          <div className="font-semibold text-sm">🧠 Kronos AI Tahmini (Foundation Model)</div>
+          <span className="ml-auto text-[10px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full font-bold">NeoQuasar/Kronos-small</span>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          12 milyar K-line kaydı üzerinde eğitilmiş Transformer modeli. OHLCV verilerini doğrudan anlayarak gelecek fiyat tahminleri üretir.
+        </p>
+
+        {kronosLoading ? (
+          <div className="text-muted-foreground animate-pulse text-sm py-6 text-center">
+            <Sparkles className="w-6 h-6 mx-auto mb-2 opacity-50" />
+            Kronos Foundation Model tahmini hesaplanıyor...
+          </div>
+        ) : kronosError ? (
+          <div className="text-xs text-muted-foreground py-4 text-center bg-secondary/30 rounded-lg">
+            Kronos şu an devre dışı: {kronosError}
+          </div>
+        ) : kronosPredictions && kronosPredictions.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="text-left py-2 px-2 font-semibold">Tarih</th>
+                  <th className="text-right py-2 px-2 font-semibold">Açılış</th>
+                  <th className="text-right py-2 px-2 font-semibold">En Yüksek</th>
+                  <th className="text-right py-2 px-2 font-semibold">En Düşük</th>
+                  <th className="text-right py-2 px-2 font-semibold">Kapanış</th>
+                  <th className="text-right py-2 px-2 font-semibold">Değişim</th>
+                </tr>
+              </thead>
+              <tbody>
+                {kronosPredictions.map((pred, i) => {
+                  const changePercent = i === 0 && analysis
+                    ? ((pred.close - analysis.currentPrice) / analysis.currentPrice) * 100
+                    : i > 0
+                    ? ((pred.close - kronosPredictions[i - 1].close) / kronosPredictions[i - 1].close) * 100
+                    : 0;
+                  const isUp = changePercent >= 0;
+                  return (
+                    <tr key={pred.timestamp} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
+                      <td className="py-2 px-2 font-medium">
+                        {new Date(pred.timestamp).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" })}
+                      </td>
+                      <td className="text-right py-2 px-2">{pred.open.toFixed(2)} ₺</td>
+                      <td className="text-right py-2 px-2 text-[color:var(--success)]">{pred.high.toFixed(2)} ₺</td>
+                      <td className="text-right py-2 px-2 text-destructive">{pred.low.toFixed(2)} ₺</td>
+                      <td className="text-right py-2 px-2 font-bold">{pred.close.toFixed(2)} ₺</td>
+                      <td className={`text-right py-2 px-2 font-bold ${isUp ? "text-[color:var(--success)]" : "text-destructive"}`}>
+                        {isUp ? "+" : ""}{changePercent.toFixed(2)}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {analysis && kronosPredictions.length > 0 && (
+              <div className="mt-3 p-3 bg-secondary/30 rounded-lg flex items-center justify-between">
+                <span className="text-xs text-muted-foreground font-medium">Toplam Kronos Beklentisi</span>
+                {(() => {
+                  const lastPred = kronosPredictions[kronosPredictions.length - 1];
+                  const totalChange = ((lastPred.close - analysis.currentPrice) / analysis.currentPrice) * 100;
+                  const isUp = totalChange >= 0;
+                  return (
+                    <span className={`text-sm font-black ${isUp ? "text-[color:var(--success)]" : "text-destructive"}`}>
+                      {isUp ? "📈" : "📉"} {isUp ? "+" : ""}{totalChange.toFixed(2)}% → {lastPred.close.toFixed(2)} ₺
+                    </span>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground py-4 text-center bg-secondary/30 rounded-lg">
+            Kronos tahminleri yükleniyor veya henüz mevcut değil.
+          </div>
+        )}
       </div>
 
       {/* Risk Management */}
